@@ -163,7 +163,6 @@ pipeline {
                             docker push ${image}:latest
                         """
                     }
-
                     echo "All images successfully built and pushed."
                 }
             }
