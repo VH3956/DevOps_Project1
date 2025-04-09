@@ -43,7 +43,7 @@
         <container.platform>linux/amd64</container.platform>
         <!-- The -load option is a shortcut for or -output=type=docker -->
         <!-- Could be changed by the -push option !-->
-        <container.build.extraarg>.</container.build.extraarg>
+        <container.build.extraarg>--load</container.build.extraarg>
     </properties>
 
     <dependencyManagement>
@@ -184,7 +184,6 @@
                                             <argument>EXPOSED_PORT=${docker.image.exposed.port}</argument>
                                             <argument>--platform</argument>
                                             <argument>${container.platform}</argument>
-                                            <argument>${container.build.extraarg}</argument>
                                             <argument>-t</argument>
                                             <argument>${docker.image.prefix}/${project.artifactId}</argument>
                                             <argument>${project.build.directory}</argument>
