@@ -176,7 +176,7 @@ pipeline {
                     }
                 }
             }
-
+    }
     post {
         success {
             script {
