@@ -132,9 +132,6 @@ pipeline {
 
         stage('Build and Push All Service Images') {
             agent { label 'built-in' } // Docker-capable agent
-            when {
-                expression { params.BUILD_ALL_SERVICES }
-            }
             steps {
                 script {
                     def commitId = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
