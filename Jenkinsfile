@@ -4,11 +4,12 @@ pipeline {
     environment {
         OTHER = ''
         environment {
-        DOCKER_HUB = credentials('docker-hub-cred')
+        DOCKER_HUB = credentials('docker-hub-cre')
         DOCKER_HUB_USR = "${DOCKER_HUB_USR}"
         DOCKER_HUB_PSW = "${DOCKER_HUB_PSW}"
         APP_NAME = 'spring-petclinic-microservices'
-        DOCKER_IMAGE = "${nghiax1609}/${spring-petclinic-microservices}"
+        DOCKER_IMAGE = "${vh3956}/${APP_NAME}"
+        }
     }
     }
     stages {
@@ -135,37 +136,47 @@ pipeline {
             }
         }
 
-    stage('Build and Push Image') {
-        agent { label 'built-in' } // Agent có cài đặt Docker
-        when {
-            expression { env.SHOULD_BUILD == 'true' }
-        }
-        steps {
-            script {
-                def commitId = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                def branch = env.GIT_BRANCH.replace('origin/', '')
+        stage('Build and Push All Service Images') {
+                agent { label 'built-in' } // Docker-capable agent
+                when {
+                    expression { params.BUILD_ALL_SERVICES }
+                }
+                steps {
+                    script {
+                        def commitId = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
 
-                sh "echo ${DOCKER_HUB_PSW} | docker login -u ${DOCKER_HUB_USR} --password-stdin"
+                        echo "Building all service images using: ./mvnw clean install -P buildDocker"
+                        sh './mvnw clean install -P buildDocker'
 
-                def services = env.SERVICE_CHANGED.split(',')
-                for (service in services) {
-                    echo "Building and pushing Docker image for service: ${service}"
+                        def services = [
+                            'admin-server',
+                            'api-gateway',
+                            'config-server',
+                            'customers-service',
+                            'discovery-server',
+                            'vets-service',
+                            'visits-service',
+                            'genai-service',
+                        ]
 
-                    dir(service) {
-                        sh "docker build -t ${DOCKER_IMAGE}-${service}:${commitId} -f docker/Dockerfile ."
-                        sh "docker push ${DOCKER_IMAGE}-${service}:${commitId}"
+                        sh "echo ${DOCKER_HUB_PSW} | docker login -u ${DOCKER_HUB_USR} --password-stdin"
 
-                        if (branch == 'main') {
-                            sh "docker tag ${DOCKER_IMAGE}-${service}:${commitId} ${DOCKER_IMAGE}-${service}:latest"
-                            sh "docker push ${DOCKER_IMAGE}-${service}:latest"
+                        for (svc in services) {
+                            def image = "${DOCKER_IMAGE}-${svc}"
+                            echo "Pushing image: ${image}:${commitId}"
+                            sh """
+                                docker tag ${image} ${image}:${commitId}
+                                docker push ${image}:${commitId}
+
+                                docker tag ${image} ${image}:latest
+                                docker push ${image}:latest
+                            """
                         }
+
+                        echo "All images successfully built and pushed."
                     }
                 }
-
-                env.BUILD_IMAGE_TAG = commitId
             }
-        }
-    }
 
     post {
         success {
