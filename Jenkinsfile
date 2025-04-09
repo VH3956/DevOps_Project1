@@ -2,15 +2,11 @@ pipeline {
     agent none  // Không chạy trên Master, chỉ điều phối
 
     environment {
-        OTHER = ''
-        environment {
-        DOCKER_HUB = credentials('docker-hub-cre')
-        DOCKER_HUB_USR = "${DOCKER_HUB_USR}"
-        DOCKER_HUB_PSW = "${DOCKER_HUB_PSW}"
+        DOCKER_HUB_CREDS = credentials('docker-hub-cre')
         APP_NAME = 'spring-petclinic-microservices'
-        DOCKER_IMAGE = "${vh3956}/${APP_NAME}"
-        }
+        DOCKER_IMAGE = "vh3956/${APP_NAME}"
     }
+
     stages {
         stage('Check Changes') {
             agent { label 'built-in' } // Chạy trên Master
@@ -109,7 +105,6 @@ pipeline {
                     def services = env.SERVICE_CHANGED.split(',')
                     def failedCoverageServices = []
 
-                    // unstash artifacts từ các agents khác
                     for (service in services) {
                         unstash "${service}-coverage"
                     }
@@ -136,47 +131,48 @@ pipeline {
         }
 
         stage('Build and Push All Service Images') {
-                agent { label 'built-in' } // Docker-capable agent
-                when {
-                    expression { params.BUILD_ALL_SERVICES }
-                }
-                steps {
-                    script {
-                        def commitId = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+            agent { label 'built-in' } // Docker-capable agent
+            when {
+                expression { params.BUILD_ALL_SERVICES }
+            }
+            steps {
+                script {
+                    def commitId = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
 
-                        echo "Building all service images using: ./mvnw clean install -P buildDocker"
-                        sh './mvnw clean install -P buildDocker'
+                    echo "Building all service images using: ./mvnw clean install -P buildDocker"
+                    sh './mvnw clean install -P buildDocker'
 
-                        def services = [
-                            'admin-server',
-                            'api-gateway',
-                            'config-server',
-                            'customers-service',
-                            'discovery-server',
-                            'vets-service',
-                            'visits-service',
-                            'genai-service',
-                        ]
+                    def services = [
+                        'admin-server',
+                        'api-gateway',
+                        'config-server',
+                        'customers-service',
+                        'discovery-server',
+                        'vets-service',
+                        'visits-service',
+                        'genai-service',
+                    ]
 
-                        sh "echo ${DOCKER_HUB_PSW} | docker login -u ${DOCKER_HUB_USR} --password-stdin"
+                    sh "echo ${DOCKER_HUB_CREDS_PSW} | docker login -u ${DOCKER_HUB_CREDS_USR} --password-stdin"
 
-                        for (svc in services) {
-                            def image = "${DOCKER_IMAGE}-${svc}"
-                            echo "Pushing image: ${image}:${commitId}"
-                            sh """
-                                docker tag ${image} ${image}:${commitId}
-                                docker push ${image}:${commitId}
+                    for (svc in services) {
+                        def image = "${DOCKER_IMAGE}-${svc}"
+                        echo "Pushing image: ${image}:${commitId}"
+                        sh """
+                            docker tag ${image} ${image}:${commitId}
+                            docker push ${image}:${commitId}
 
-                                docker tag ${image} ${image}:latest
-                                docker push ${image}:latest
-                            """
-                        }
-
-                        echo "All images successfully built and pushed."
+                            docker tag ${image} ${image}:latest
+                            docker push ${image}:latest
+                        """
                     }
+
+                    echo "All images successfully built and pushed."
                 }
             }
+        }
     }
+
     post {
         success {
             script {
