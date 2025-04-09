@@ -11,7 +11,6 @@ pipeline {
         DOCKER_IMAGE = "${vh3956}/${APP_NAME}"
         }
     }
-    }
     stages {
         stage('Check Changes') {
             agent { label 'built-in' } // Chạy trên Master
