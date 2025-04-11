@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKER_HUB_CREDS = credentials('docker-hub-cre')
-        APP_NAME = 'spring-petclinic-microservices'
+        APP_NAME = 'spring-petclinic-'
         DOCKER_IMAGE = "vh3956/${APP_NAME}"
     }
 
@@ -137,7 +137,7 @@ pipeline {
                 script {
                     def commitId = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
 
-                    echo "Building all service images using: ./mvnw clean install -P buildDocker"
+                    echo "🔧 Building all service images using: ./mvnw clean install -P buildDocker"
                     sh './mvnw clean install -P buildDocker'
 
                     def services = [
@@ -148,27 +148,31 @@ pipeline {
                         'discovery-server',
                         'vets-service',
                         'visits-service',
-                        'genai-service',
+                        'genai-service'
                     ]
 
+                    echo "🔐 Logging into Docker Hub..."
                     sh "echo ${DOCKER_HUB_CREDS_PSW} | docker login -u ${DOCKER_HUB_CREDS_USR} --password-stdin"
 
                     for (svc in services) {
-                        def image = "${DOCKER_IMAGE}-${svc}"
-                        echo "Pushing image: ${image}:${commitId}"
-                        sh """
-                            docker tag ${image} ${image}:${commitId}
-                            docker push ${image}:${commitId}
+                        def localImage = "spring-petclinic-${svc}"
+                        def remoteImage = "${DOCKER_IMAGE}-${svc}"
 
-                            docker tag ${image} ${image}:latest
-                            docker push ${image}:latest
+                        echo "📦 Tagging and pushing image: ${remoteImage}"
+
+                        sh """
+                            docker tag ${localImage} ${remoteImage}:${commitId}
+                            docker push ${remoteImage}:${commitId}
+
+                            docker tag ${localImage} ${remoteImage}:latest
+                            docker push ${remoteImage}:latest
                         """
                     }
-                    echo "All images successfully built and pushed."
+
+                    echo "✅ All images successfully built and pushed."
                 }
             }
         }
-    }
 
     post {
         success {
