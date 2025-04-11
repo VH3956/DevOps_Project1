@@ -132,12 +132,13 @@ pipeline {
 
 
         stage('Build and Push All Service Images') {
-            agent { label 'built-in' } // Docker-capable agent
+            agent { label 'built-in' }
             steps {
                 script {
                     def commitId = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    def versionTag = "3.4.1"
 
-                    echo "🔧 Building all service images using: ./mvnw clean install -P buildDocker"
+                    echo "Building all service images using: ./mvnw clean install -P buildDocker"
                     sh './mvnw clean install -P buildDocker'
 
                     def services = [
@@ -148,17 +149,19 @@ pipeline {
                         'discovery-server',
                         'vets-service',
                         'visits-service',
-                        'genai-service'
+                        'genai-service',
                     ]
 
-                    echo "🔐 Logging into Docker Hub..."
+                    sh 'docker images'
+                    echo "Docker images before tagging and pushing: ${services}"
+                    
                     sh "echo ${DOCKER_HUB_CREDS_PSW} | docker login -u ${DOCKER_HUB_CREDS_USR} --password-stdin"
 
                     for (svc in services) {
-                        def localImage = "spring-petclinic-${svc}"
+                        def localImage = "spring-petclinic-${svc}:${versionTag}"
                         def remoteImage = "${DOCKER_IMAGE}-${svc}"
 
-                        echo "📦 Tagging and pushing image: ${remoteImage}"
+                        echo "Tagging and pushing image: ${remoteImage}:${commitId}"
 
                         sh """
                             docker tag ${localImage} ${remoteImage}:${commitId}
@@ -168,11 +171,11 @@ pipeline {
                             docker push ${remoteImage}:latest
                         """
                     }
-
-                    echo "✅ All images successfully built and pushed."
+                    echo "All images successfully built and pushed."
                 }
             }
         }
+
 
     }
     post {
