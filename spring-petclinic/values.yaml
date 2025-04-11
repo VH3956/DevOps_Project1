@@ -1,5 +1,5 @@
 image:
-  repository: nghiax1609
+  repository: vh3956
   pullPolicy: IfNotPresent
 
 services:
