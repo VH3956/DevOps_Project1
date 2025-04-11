@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         DOCKER_HUB_CREDS = credentials('docker-hub-cre')
-        APP_NAME = 'spring-petclinic-'
+        APP_NAME = 'spring-petclinic'
         DOCKER_IMAGE = "vh3956/${APP_NAME}"
     }
 
