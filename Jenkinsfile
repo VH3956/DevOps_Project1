@@ -154,21 +154,18 @@ pipeline {
 
                     sh 'docker images'
                     echo "Docker images before tagging and pushing: ${services}"
-                    
+
                     sh "echo ${DOCKER_HUB_CREDS_PSW} | docker login -u ${DOCKER_HUB_CREDS_USR} --password-stdin"
 
                     for (svc in services) {
-                        def localImage = "spring-petclinic-${svc}:${versionTag}"
-                        def remoteImage = "${DOCKER_IMAGE}-${svc}"
-
-                        echo "Tagging and pushing image: ${remoteImage}:${commitId}"
-
+                        def image = "${DOCKER_IMAGE}-${svc}"
+                        echo "Pushing image: ${image}:${commitId}"
                         sh """
-                            docker tag ${localImage} ${remoteImage}:${commitId}
-                            docker push ${remoteImage}:${commitId}
+                            docker tag ${image} ${image}:${commitId}
+                            docker push ${image}:${commitId}
 
-                            docker tag ${localImage} ${remoteImage}:latest
-                            docker push ${remoteImage}:latest
+                            docker tag ${image} ${image}:latest
+                            docker push ${image}:latest
                         """
                     }
                     echo "All images successfully built and pushed."
