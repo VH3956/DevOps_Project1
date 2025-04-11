@@ -3,51 +3,58 @@ pipeline {
 
     environment {
         DOCKER_HUB_CREDS = credentials('docker-hub-cre')
-        APP_NAME = 'spring-petclinic'
-        DOCKER_IMAGE = "vh3956/${APP_NAME}"
+        DOCKER_IMAGE = "vh3956/"
     }
 
     stages {
-        // stage('Check Changes') {
-        //     agent { label 'built-in' } // Chạy trên Master
-        //     steps {
-        //         script {
-        //             echo "Commit SHA: ${GIT_COMMIT}"
-        //             def changedFiles = []
-        //             env.NO_SERVICES_TO_BUILD = 'false'
-        //             if (env.CHANGE_TARGET) {
-        //                 changedFiles = sh(script: "git diff --name-only HEAD^", returnStdout: true).trim().split('\n').toList()
-        //             } else {
-        //                 changedFiles = sh(script: "git diff --name-only HEAD^", returnStdout: true).trim().split('\n').toList()
-        //             }
+        stage('Check Changes') {
+            agent { label 'built-in' } // Chạy trên Master
+            steps {
+                script {
+                    echo "Commit SHA: ${GIT_COMMIT}"
+                    def changedFiles = []
+                    env.NO_SERVICES_TO_BUILD = 'false'
+                    if (env.CHANGE_TARGET) {
+                        changedFiles = sh(script: "git diff --name-only HEAD^", returnStdout: true).trim().split('\n').toList()
+                    } else {
+                        changedFiles = sh(script: "git diff --name-only HEAD^", returnStdout: true).trim().split('\n').toList()
+                    }
 
-        //             def services = ['spring-petclinic-customers-service', 'spring-petclinic-visits-service', 'spring-petclinic-vets-service']
-                    
-        //             echo "Changed files: ${changedFiles}"
+                    def services = [
+                        'spring-petclinic-customers-service',
+                        'spring-petclinic-visits-service',
+                        'spring-petclinic-vets-service',
+                        'spring-petclinic-admin-server',
+                        'spring-petclinic-api-gateway',
+                        'spring-petclinic-config-server',
+                        'spring-petclinic-discovery-server',
+                        'spring-petclinic-genai-service'
+                    ]
+                    echo "Changed files: ${changedFiles}"
 
-        //             if (changedFiles.isEmpty() || changedFiles[0] == '') {
-        //                 echo "No changes detected. Skipping pipeline."
-        //                 currentBuild.result = 'ABORTED'
-        //                 return
-        //             }
+                    if (changedFiles.isEmpty() || changedFiles[0] == '') {
+                        echo "No changes detected. Skipping pipeline."
+                        currentBuild.result = 'ABORTED'
+                        return
+                    }
 
-        //             def detectedServices = []
-        //             for (service in services) {
-        //                 if (changedFiles.any { it.startsWith(service + '/') }) {
-        //                     detectedServices << service
-        //                 }
-        //             }
+                    def detectedServices = []
+                    for (service in services) {
+                        if (changedFiles.any { it.startsWith(service + '/') }) {
+                            detectedServices << service
+                        }
+                    }
 
-        //             if (detectedServices.isEmpty()) {
-        //                 echo "No relevant service changes detected. Skipping pipeline."
-        //                 env.NO_SERVICES_TO_BUILD = 'true'
-        //             } else {
-        //                 echo "Detected Services: ${detectedServices}"
-        //                 env.SERVICE_CHANGED = detectedServices.join(",")
-        //             }
-        //         }
-        //     }
-        // }
+                    if (detectedServices.isEmpty()) {
+                        echo "No relevant service changes detected. Skipping pipeline."
+                        env.NO_SERVICES_TO_BUILD = 'true'
+                    } else {
+                        echo "Detected Services: ${detectedServices}"
+                        env.SERVICE_CHANGED = detectedServices.join(",")
+                    }
+                }
+            }
+        }
 
         // stage('Test & Coverage - Agent 1') {
         //     agent { label 'agent1' }  
@@ -131,35 +138,71 @@ pipeline {
         // }
 
 
-        stage('Build and Push All Service Images') {
+        // stage('Build and Push All Service Images') {
+        //     agent { label 'built-in' }
+        //     steps {
+        //         script {
+        //             def commitId = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+        //             def versionTag = "3.4.1"
+
+        //             echo "Building all service images using: ./mvnw clean install -P buildDocker"
+        //             sh './mvnw clean install -P buildDocker'
+
+        //             def services = [
+        //                 'admin-server',
+        //                 'api-gateway',
+        //                 'config-server',
+        //                 'customers-service',
+        //                 'discovery-server',
+        //                 'vets-service',
+        //                 'visits-service',
+        //                 'genai-service',
+        //             ]
+
+        //             sh 'docker images'
+        //             echo "Docker images before tagging and pushing: ${services}"
+
+        //             sh "echo ${DOCKER_HUB_CREDS_PSW} | docker login -u ${DOCKER_HUB_CREDS_USR} --password-stdin"
+
+        //             for (svc in services) {
+        //                 def image = "${DOCKER_IMAGE}-${svc}"
+        //                 echo "Pushing image: ${image}:${commitId}"
+        //                 sh """
+        //                     docker tag ${image} ${image}:${commitId}
+        //                     docker push ${image}:${commitId}
+
+        //                     docker tag ${image} ${image}:latest
+        //                     docker push ${image}:latest
+        //                 """
+        //             }
+        //             echo "All images successfully built and pushed."
+        //         }
+        //     }
+        // }
+
+        stage('Build and Push Changed Services') {
             agent { label 'built-in' }
+            when {
+                expression { env.NO_SERVICES_TO_BUILD == 'false' }
+            }
             steps {
                 script {
                     def commitId = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-                    def versionTag = "3.4.1"
+                    def services = env.SERVICE_CHANGED.split(',')
 
-                    echo "Building all service images using: ./mvnw clean install -P buildDocker"
-                    sh './mvnw clean install -P buildDocker'
+                    echo "Building only changed services: ${services.join(', ')}"
 
-                    def services = [
-                        'admin-server',
-                        'api-gateway',
-                        'config-server',
-                        'customers-service',
-                        'discovery-server',
-                        'vets-service',
-                        'visits-service',
-                        'genai-service',
-                    ]
-
-                    sh 'docker images'
-                    echo "Docker images before tagging and pushing: ${services}"
+                    for (svc in services) {
+                        echo "Building Docker image for ${svc}"
+                        sh "./mvnw clean install -pl ${svc} -am -P buildDocker"
+                    }
 
                     sh "echo ${DOCKER_HUB_CREDS_PSW} | docker login -u ${DOCKER_HUB_CREDS_USR} --password-stdin"
 
                     for (svc in services) {
                         def image = "${DOCKER_IMAGE}-${svc}"
                         echo "Pushing image: ${image}:${commitId}"
+
                         sh """
                             docker tag ${image} ${image}:${commitId}
                             docker push ${image}:${commitId}
@@ -168,7 +211,6 @@ pipeline {
                             docker push ${image}:latest
                         """
                     }
-                    echo "All images successfully built and pushed."
                 }
             }
         }
