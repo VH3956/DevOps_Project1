@@ -188,9 +188,11 @@ pipeline {
             steps {
                 script {
                     def commitId = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+                    def branchName = env.BRANCH_NAME ?: sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
                     def services = env.SERVICE_CHANGED.split(',')
 
                     echo "Building only changed services: ${services.join(', ')}"
+                    echo "Current branch: ${branchName}"
 
                     for (svc in services) {
                         echo "Building Docker image for ${svc}"
@@ -206,10 +208,17 @@ pipeline {
                         sh """
                             docker tag ${image} ${image}:${commitId}
                             docker push ${image}:${commitId}
-
-                            docker tag ${image} ${image}:latest
-                            docker push ${image}:latest
                         """
+
+                        if (branchName == "main") {
+                            echo "Also tagging and pushing latest for ${image}"
+                            sh """
+                                docker tag ${image} ${image}:latest
+                                docker push ${image}:latest
+                            """
+                        } else {
+                            echo "Skipping latest tag for non-main branch (${branchName})"
+                        }
                     }
                 }
             }
