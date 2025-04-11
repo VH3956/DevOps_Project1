@@ -1,0 +1,52 @@
+image:
+  repository: nghiax1609
+  pullPolicy: IfNotPresent
+
+services:
+  admin-server:
+    enabled: true
+    image: spring-petclinic-admin-server
+    tag: latest
+    port: 9090
+
+  customers-service:
+    enabled: true
+    image: spring-petclinic-customers-service
+    tag: latest
+    port: 8081
+
+  vets-service:
+    enabled: true
+    image: spring-petclinic-vets-service
+    tag: latest
+    port: 8082
+
+  visits-service:
+    enabled: true
+    image: spring-petclinic-visits-service
+    tag: latest
+    port: 8083
+
+  genai-service:
+    enabled: true
+    image: spring-petclinic-genai-service
+    tag: latest
+    port: 8084
+
+  config-server:
+    enabled: true
+    image: spring-petclinic-config-server
+    tag: latest
+    port: 8888
+
+  discovery-server:
+    enabled: true
+    image: spring-petclinic-discovery-server
+    tag: latest
+    port: 8761
+
+  api-gateway:
+    enabled: true
+    image: spring-petclinic-api-gateway
+    tag: latest
+    port: 8080

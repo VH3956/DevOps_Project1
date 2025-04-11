@@ -79,7 +79,6 @@
 pipeline {
     agent any
     parameters {
-        // For each service, the default tag is "main". The developer can override one or more if needed.
         string(name: 'ADMIN_SERVER_TAG', defaultValue: 'latest', description: 'Image tag for admin-server')
         string(name: 'API_GATEWAY_TAG', defaultValue: 'latest', description: 'Image tag for api-gateway')
         string(name: 'CONFIG_SERVER_TAG', defaultValue: 'latest', description: 'Image tag for config-server')
@@ -90,17 +89,34 @@ pipeline {
         string(name: 'GENAI_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for genai-service')
     }
     environment {
-        // This is the base image name (without service-specific suffix)
         DOCKER_IMAGE_BASE = "vh3956/spring-petclinic"
         KUBECONFIG = '/var/lib/jenkins/.kube/config'
     }
     stages {
+
+        stage('Deploy Helm Chart') {
+            steps {
+                script {
+                    echo "Deploying Helm Chart for Spring PetClinic..."
+                    sh """
+                        export KUBECONFIG=${KUBECONFIG}
+                        minikube update-context
+                        kubectl config delete-cluster minikube || true
+                        kubectl config delete-context minikube || true
+                        minikube update-context
+                        kubectl config view --minify
+                        helm upgrade --install spring-petclinic ./spring-petclinic \\
+                            --namespace spring-petclinic \\
+                            --create-namespace
+                    """
+                }
+            }
+        }
+
         stage('Deploy to Kubernetes') {
             steps {
                 script {
                     echo "Updating Kubernetes deployments with selected image tags..."
-                    // The deployment names and container names below are assumed to match your Kubernetes manifests.
-                    // Update them if your manifest names are different.
                     sh "kubectl set image deployment/spring-petclinic-admin-server admin-server=${DOCKER_IMAGE_BASE}-admin-server:${params.ADMIN_SERVER_TAG} --record"
                     sh "kubectl set image deployment/spring-petclinic-api-gateway api-gateway=${DOCKER_IMAGE_BASE}-api-gateway:${params.API_GATEWAY_TAG} --record"
                     sh "kubectl set image deployment/spring-petclinic-config-server config-server=${DOCKER_IMAGE_BASE}-config-server:${params.CONFIG_SERVER_TAG} --record"
@@ -109,26 +125,22 @@ pipeline {
                     sh "kubectl set image deployment/spring-petclinic-vets-service vets-service=${DOCKER_IMAGE_BASE}-vets-service:${params.VETS_SERVICE_TAG} --record"
                     sh "kubectl set image deployment/spring-petclinic-visits-service visits-service=${DOCKER_IMAGE_BASE}-visits-service:${params.VISITS_SERVICE_TAG} --record"
                     sh "kubectl set image deployment/spring-petclinic-genai-service genai-service=${DOCKER_IMAGE_BASE}-genai-service:${params.GENAI_SERVICE_TAG} --record"
-                    
-                    // Optionally wait for rollout of key deployments
                     sh "kubectl rollout status deployment/spring-petclinic-vets-service"
                     sh "kubectl rollout status deployment/spring-petclinic-visits-service"
                 }
             }
         }
+
         stage('Expose Service Endpoints') {
             steps {
                 script {
-                    // Retrieve NodePort values from selected services.
                     def adminPort = sh(script: "kubectl get svc spring-petclinic-admin-server -o jsonpath='{.spec.ports[0].nodePort}'", returnStdout: true).trim()
                     def apiPort = sh(script: "kubectl get svc spring-petclinic-api-gateway -o jsonpath='{.spec.ports[0].nodePort}'", returnStdout: true).trim()
                     def configPort = sh(script: "kubectl get svc spring-petclinic-config-server -o jsonpath='{.spec.ports[0].nodePort}'", returnStdout: true).trim()
-                    
+
                     echo "Admin Server is accessible at: <Worker_Node_IP>:${adminPort}"
                     echo "API Gateway is accessible at: <Worker_Node_IP>:${apiPort}"
                     echo "Config Server is accessible at: <Worker_Node_IP>:${configPort}"
-                    echo "For the remaining services, run similar 'kubectl get svc <service-name>' commands."
-                    echo "Please add these <Worker_Node_IP>:port mappings to your hosts file to access the services."
                 }
             }
         }

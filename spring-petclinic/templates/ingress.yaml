@@ -1,0 +1,76 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: spring-petclinic-ingress
+  namespace: spring-petclinic
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  rules:
+  - host: dev.spring-petclinic.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-gateway
+            port:
+              number: 8080
+      - path: /admin
+        pathType: Prefix
+        backend:
+          service:
+            name: admin-server
+            port:
+              number: 9090
+      - path: /customers
+        pathType: Prefix
+        backend:
+          service:
+            name: customers-service
+            port:
+              number: 8081
+      - path: /vets
+        pathType: Prefix
+        backend:
+          service:
+            name: vets-service
+            port:
+              number: 8082
+      - path: /visits
+        pathType: Prefix
+        backend:
+          service:
+            name: visits-service
+            port:
+              number: 8083
+      - path: /genai
+        pathType: Prefix
+        backend:
+          service:
+            name: genai-service
+            port:
+              number: 8084
+      - path: /config
+        pathType: Prefix
+        backend:
+          service:
+            name: config-server
+            port:
+              number: 8888
+      - path: /discovery
+        pathType: Prefix
+        backend:
+          service:
+            name: discovery-server
+            port:
+              number: 8761
+      - path: /gateway
+        pathType: Prefix
+        backend:
+          service:
+            name: api-gateway
+            port:
+              number: 8080
