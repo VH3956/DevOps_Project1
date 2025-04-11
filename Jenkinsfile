@@ -200,7 +200,7 @@ pipeline {
                     sh "echo ${DOCKER_HUB_CREDS_PSW} | docker login -u ${DOCKER_HUB_CREDS_USR} --password-stdin"
 
                     for (svc in services) {
-                        def image = "${DOCKER_IMAGE}-${svc}"
+                        def image = "${DOCKER_IMAGE}${svc}"
                         echo "Pushing image: ${image}:${commitId}"
 
                         sh """
