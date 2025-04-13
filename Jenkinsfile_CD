@@ -93,6 +93,7 @@ pipeline {
     environment {
         DOCKER_IMAGE_BASE = "vh3956/spring-petclinic"
         KUBECONFIG = '/var/lib/jenkins/.kube/config'
+        DOMAIN_BASE = 'dev.spring-petclinic.com'
     }
 
     stages {
@@ -144,32 +145,62 @@ pipeline {
                     ]
 
                     services.each { svc ->
-                        def deployment = svc.name // ✅ instead of "spring-petclinic-${svc.name}"
+                        def deployment = svc.name
                         def container = svc.name
                         def image = "${DOCKER_IMAGE_BASE}-${container}:${svc.tag}"
+
+                        echo "🔄 Setting image for ${deployment} ➜ ${image}"
                         sh "kubectl set image deployment/${deployment} ${container}=${image} --record -n spring-petclinic"
                         sh "kubectl rollout status deployment/${deployment} -n spring-petclinic"
+
+                        // Create/Update Ingress
+                        def host = "${deployment}.${DOMAIN_BASE}"
+                        echo "🌐 Exposing ${deployment} via Ingress at http://${host}"
+                        sh """
+                        kubectl apply -f - <<EOF
+                        apiVersion: networking.k8s.io/v1
+                        kind: Ingress
+                        metadata:
+                          name: ${deployment}-ingress
+                          namespace: spring-petclinic
+                          annotations:
+                            nginx.ingress.kubernetes.io/rewrite-target: /
+                        spec:
+                          rules:
+                          - host: ${host}
+                            http:
+                              paths:
+                              - path: /
+                                pathType: Prefix
+                                backend:
+                                  service:
+                                    name: ${deployment}
+                                    port:
+                                      number: 8080
+                        EOF
+                        """
                     }
                 }
             }
         }
 
-        stage('Expose Service Endpoints') {
+        stage('Echo Domain Endpoints') {
             steps {
                 script {
-                    // Get NodePort values using jsonpath
-                    def ports = [
-                        admin:  sh(script: "kubectl get svc admin-server -n spring-petclinic -o jsonpath='{.spec.ports[0].nodePort}'", returnStdout: true).trim(),
-                        api:    sh(script: "kubectl get svc api-gateway -n spring-petclinic -o jsonpath='{.spec.ports[0].nodePort}'", returnStdout: true).trim(),
-                        config: sh(script: "kubectl get svc config-server -n spring-petclinic -o jsonpath='{.spec.ports[0].nodePort}'", returnStdout: true).trim()
+                    def endpoints = [
+                        "admin-server",
+                        "api-gateway",
+                        "config-server",
+                        "customers-service",
+                        "discovery-server",
+                        "vets-service",
+                        "visits-service",
+                        "genai-service"
                     ]
 
-                    // Set your Worker Node IP here
-                    def nodeIP = "10.115.111.220"
-
-                    echo "🌐 Admin Server   ➜ http://${nodeIP}:${ports.admin}"
-                    echo "🌐 API Gateway    ➜ http://${nodeIP}:${ports.api}"
-                    echo "🌐 Config Server  ➜ http://${nodeIP}:${ports.config}"
+                    endpoints.each { service ->
+                        echo "✅ ${service} ➜ http://${service}.${DOMAIN_BASE}"
+                    }
                 }
             }
         }
@@ -177,11 +208,12 @@ pipeline {
 
     post {
         success {
-            echo "✅ CD deployment completed successfully."
+            echo "✅ CD deployment completed successfully with Ingress support and domain-based endpoints."
         }
         failure {
             echo "❌ CD deployment failed. Check the logs for more details."
         }
     }
 }
+
 
