@@ -157,15 +157,19 @@ pipeline {
         stage('Expose Service Endpoints') {
             steps {
                 script {
+                    // Get NodePort values
                     def ports = [
                         admin:  sh(script: "kubectl get svc spring-petclinic-admin-server -o jsonpath='{.spec.ports[0].nodePort}'", returnStdout: true).trim(),
                         api:    sh(script: "kubectl get svc spring-petclinic-api-gateway -o jsonpath='{.spec.ports[0].nodePort}'", returnStdout: true).trim(),
                         config: sh(script: "kubectl get svc spring-petclinic-config-server -o jsonpath='{.spec.ports[0].nodePort}'", returnStdout: true).trim()
                     ]
 
-                    echo "Admin Server   ➜ http://<Worker_Node_IP>:${ports.admin}"
-                    echo "API Gateway    ➜ http://<Worker_Node_IP>:${ports.api}"
-                    echo "Config Server  ➜ http://<Worker_Node_IP>:${ports.config}"
+                    // Set your Worker Node IP here
+                    def nodeIP = "10.115.111.220"
+
+                    echo "🌐 Admin Server   ➜ http://${nodeIP}:${ports.admin}"
+                    echo "🌐 API Gateway    ➜ http://${nodeIP}:${ports.api}"
+                    echo "🌐 Config Server  ➜ http://${nodeIP}:${ports.config}"
                 }
             }
         }
