@@ -5,7 +5,7 @@ metadata:
   labels:
     app: admin-server
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - port: 9090
       targetPort: 9090
@@ -19,7 +19,7 @@ metadata:
   labels:
     app: customers-service
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - port: 8081
       targetPort: 8081
@@ -33,7 +33,7 @@ metadata:
   labels:
     app: vets-service
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - port: 8082
       targetPort: 8082
@@ -47,7 +47,7 @@ metadata:
   labels:
     app: visits-service
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - port: 8083
       targetPort: 8083
@@ -61,7 +61,7 @@ metadata:
   labels:
     app: genai-service
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - port: 8084
       targetPort: 8084
@@ -75,7 +75,7 @@ metadata:
   labels:
     app: config-server
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - port: 8888
       targetPort: 8888
@@ -89,7 +89,7 @@ metadata:
   labels:
     app: discovery-server
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - port: 8761
       targetPort: 8761
@@ -103,7 +103,7 @@ metadata:
   labels:
     app: api-gateway
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
     - port: 8080
       targetPort: 8080
