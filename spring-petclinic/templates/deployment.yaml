@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: admin-server
-        image: "nghiax1609/spring-petclinic-admin-server:latest"
+        image: "vh3956/spring-petclinic-admin-server:latest"
         ports:
         - containerPort: 9090
 ---
@@ -38,7 +38,7 @@ spec:
     spec:
       containers:
       - name: customers-service
-        image: "nghiax1609/spring-petclinic-customers-service:latest"
+        image: "vh3956/spring-petclinic-customers-service:latest"
         ports:
         - containerPort: 8081
 ---
@@ -60,7 +60,7 @@ spec:
     spec:
       containers:
       - name: vets-service
-        image: "nghiax1609/spring-petclinic-vets-service:latest"
+        image: "vh3956/spring-petclinic-vets-service:latest"
         ports:
         - containerPort: 8082
 ---
@@ -82,7 +82,7 @@ spec:
     spec:
       containers:
       - name: visits-service
-        image: "nghiax1609/spring-petclinic-visits-service:latest"
+        image: "vh3956/spring-petclinic-visits-service:latest"
         ports:
         - containerPort: 8083
 ---
@@ -104,7 +104,7 @@ spec:
     spec:
       containers:
       - name: genai-service
-        image: "nghiax1609/spring-petclinic-genai-service:latest"
+        image: "vh3956/spring-petclinic-genai-service:latest"
         ports:
         - containerPort: 8084
 ---
@@ -126,7 +126,7 @@ spec:
     spec:
       containers:
       - name: config-server
-        image: "nghiax1609/spring-petclinic-config-server:latest"
+        image: "vh3956/spring-petclinic-config-server:latest"
         ports:
         - containerPort: 8888
 ---
@@ -148,7 +148,7 @@ spec:
     spec:
       containers:
       - name: discovery-server
-        image: "nghiax1609/spring-petclinic-discovery-server:latest"
+        image: "vh3956/spring-petclinic-discovery-server:latest"
         ports:
         - containerPort: 8761
 ---
@@ -170,6 +170,6 @@ spec:
     spec:
       containers:
       - name: api-gateway
-        image: "nghiax1609/spring-petclinic-api-gateway:latest"
+        image: "vh3956/spring-petclinic-api-gateway:latest"
         ports:
         - containerPort: 8080
