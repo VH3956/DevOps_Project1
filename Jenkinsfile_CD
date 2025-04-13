@@ -153,32 +153,32 @@ pipeline {
                         sh "kubectl set image deployment/${deployment} ${container}=${image} --record -n spring-petclinic"
                         sh "kubectl rollout status deployment/${deployment} -n spring-petclinic"
 
-                        // Create/Update Ingress
-                        def host = "${deployment}.${DOMAIN_BASE}"
-                        echo "🌐 Exposing ${deployment} via Ingress at http://${host}"
+                        echo "🌐 Exposing ${deployment} via Ingress at http://${deployment}.dev.spring-petclinic.com"
+
                         sh """
-                        kubectl apply -f - <<EOF
+                        cat <<EOF | kubectl apply -f -
                         apiVersion: networking.k8s.io/v1
                         kind: Ingress
                         metadata:
-                          name: ${deployment}-ingress
-                          namespace: spring-petclinic
-                          annotations:
+                        name: ${deployment}-ingress
+                        namespace: spring-petclinic
+                        annotations:
                             nginx.ingress.kubernetes.io/rewrite-target: /
                         spec:
-                          rules:
-                          - host: ${host}
+                        rules:
+                        - host: ${deployment}.dev.spring-petclinic.com
                             http:
-                              paths:
-                              - path: /
+                            paths:
+                            - path: /
                                 pathType: Prefix
                                 backend:
-                                  service:
+                                service:
                                     name: ${deployment}
                                     port:
-                                      number: 8080
+                                    number: 8080
                         EOF
                         """
+
                     }
                 }
             }
