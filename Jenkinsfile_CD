@@ -157,26 +157,26 @@ pipeline {
 
                         sh """
                         cat <<EOF | kubectl apply -f -
-                        apiVersion: networking.k8s.io/v1
-                        kind: Ingress
-                        metadata:
-                        name: ${deployment}-ingress
-                        namespace: spring-petclinic
-                        annotations:
-                            nginx.ingress.kubernetes.io/rewrite-target: /
-                        spec:
-                        rules:
-                        - host: ${deployment}.dev.spring-petclinic.com
-                            http:
-                            paths:
-                            - path: /
-                                pathType: Prefix
-                                backend:
-                                service:
-                                    name: ${deployment}
-                                    port:
-                                    number: 8080
-                        EOF
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: admin-server-ingress
+  namespace: spring-petclinic
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: admin-server.dev.spring-petclinic.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: admin-server
+                port:
+                  number: 8080
+EOF
                         """
 
                     }
