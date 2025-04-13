@@ -144,11 +144,11 @@ pipeline {
                     ]
 
                     services.each { svc ->
-                        def deployment = "spring-petclinic-${svc.name}"
+                        def deployment = svc.name // ✅ instead of "spring-petclinic-${svc.name}"
                         def container = svc.name
                         def image = "${DOCKER_IMAGE_BASE}-${container}:${svc.tag}"
-                        sh "kubectl set image deployment/${deployment} ${container}=${image} --record"
-                        sh "kubectl rollout status deployment/${deployment}"
+                        sh "kubectl set image deployment/${deployment} ${container}=${image} --record -n spring-petclinic"
+                        sh "kubectl rollout status deployment/${deployment} -n spring-petclinic"
                     }
                 }
             }
