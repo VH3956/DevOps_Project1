@@ -1,175 +1,29 @@
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: admin-server
-  labels:
-    app: admin-server
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: admin-server
-  template:
-    metadata:
-      labels:
-        app: admin-server
-    spec:
-      containers:
-      - name: admin-server
-        image: "vh3956/spring-petclinic-admin-server:latest"
-        ports:
-        - containerPort: 9090
+{{- range $name, $config := .Values.services }}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: customers-service
+  name: {{ $config.containerName }}
+  namespace: {{ $.Values.namespace }}
   labels:
-    app: customers-service
+    app: {{ $config.containerName }}
 spec:
-  replicas: 1
+  replicas: {{ $.Values.replicaCount }}
   selector:
     matchLabels:
-      app: customers-service
+      app: {{ $config.containerName }}
   template:
     metadata:
       labels:
-        app: customers-service
+        app: {{ $config.containerName }}
     spec:
       containers:
-      - name: customers-service
-        image: "vh3956/spring-petclinic-customers-service:latest"
-        ports:
-        - containerPort: 8081
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: vets-service
-  labels:
-    app: vets-service
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: vets-service
-  template:
-    metadata:
-      labels:
-        app: vets-service
-    spec:
-      containers:
-      - name: vets-service
-        image: "vh3956/spring-petclinic-vets-service:latest"
-        ports:
-        - containerPort: 8082
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: visits-service
-  labels:
-    app: visits-service
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: visits-service
-  template:
-    metadata:
-      labels:
-        app: visits-service
-    spec:
-      containers:
-      - name: visits-service
-        image: "vh3956/spring-petclinic-visits-service:latest"
-        ports:
-        - containerPort: 8083
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: genai-service
-  labels:
-    app: genai-service
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: genai-service
-  template:
-    metadata:
-      labels:
-        app: genai-service
-    spec:
-      containers:
-      - name: genai-service
-        image: "vh3956/spring-petclinic-genai-service:latest"
-        ports:
-        - containerPort: 8084
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: config-server
-  labels:
-    app: config-server
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: config-server
-  template:
-    metadata:
-      labels:
-        app: config-server
-    spec:
-      containers:
-      - name: config-server
-        image: "vh3956/spring-petclinic-config-server:latest"
-        ports:
-        - containerPort: 8888
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: discovery-server
-  labels:
-    app: discovery-server
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: discovery-server
-  template:
-    metadata:
-      labels:
-        app: discovery-server
-    spec:
-      containers:
-      - name: discovery-server
-        image: "vh3956/spring-petclinic-discovery-server:latest"
-        ports:
-        - containerPort: 8761
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: api-gateway
-  labels:
-    app: api-gateway
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: api-gateway
-  template:
-    metadata:
-      labels:
-        app: api-gateway
-    spec:
-      containers:
-      - name: api-gateway
-        image: "vh3956/spring-petclinic-api-gateway:latest"
-        ports:
-        - containerPort: 8080
+        - name: {{ $config.containerName }}
+          image: {{ $config.image }}:{{ $config.tag }}-{{ if $config.commit }}{{ $config.commit }}{{ else }}{{ $.Values.version }}{{ end }}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: {{ $config.port }}
+          env:
+            - name: EUREKA_INSTANCE_HOSTNAME
+              value: {{ $config.containerName }}
+{{- end }}

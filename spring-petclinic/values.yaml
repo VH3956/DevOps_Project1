@@ -1,52 +1,47 @@
-image:
-  repository: vh3956
-  pullPolicy: IfNotPresent
-
+namespace: developer-86
+version: 'main'
 services:
-  admin-server:
-    enabled: true
-    image: spring-petclinic-admin-server
-    tag: latest
-    port: 9090
-
-  customers-service:
-    enabled: true
-    image: spring-petclinic-customers-service
-    tag: latest
-    port: 8081
-
-  vets-service:
-    enabled: true
-    image: spring-petclinic-vets-service
-    tag: latest
-    port: 8082
-
-  visits-service:
-    enabled: true
-    image: spring-petclinic-visits-service
-    tag: latest
-    port: 8083
-
-  genai-service:
-    enabled: true
-    image: spring-petclinic-genai-service
-    tag: latest
-    port: 8084
-
   config-server:
-    enabled: true
-    image: spring-petclinic-config-server
-    tag: latest
+    containerName: config-server
+    image: vh3956/spring-petclinic-config-server
+    tag: ""
     port: 8888
-
+  customers-service:
+    containerName: customers-service
+    image: vh3956/spring-petclinic-customers-service
+    tag: ""
+    port: 8081
   discovery-server:
-    enabled: true
-    image: spring-petclinic-discovery-server
-    tag: latest
+    containerName: discovery-server
+    image: vh3956/spring-petclinic-discovery-server
+    tag: ""
     port: 8761
-
+  visits-service:
+    containerName: visits-service
+    image: vh3956/spring-petclinic-visits-service
+    tag: ""
+    port: 8082
+  vets-service:
+    containerName: vets-service
+    image: vh3956/spring-petclinic-vets-service
+    tag: ""
+    port: 8083
+  genai-service:
+    containerName: genai-service
+    image: vh3956/spring-petclinic-genai-service
+    tag: ""
+    port: 8084
   api-gateway:
-    enabled: true
-    image: spring-petclinic-api-gateway
-    tag: latest
+    containerName: api-gateway
+    image: vh3956/spring-petclinic-api-gateway
+    tag: ""
     port: 8080
+    ingress:
+      enabled: true
+      host: petclinic-dev.tech
+  admin-server:
+    containerName: admin-server
+    image: vh3956/spring-petclinic-admin-server
+    tag: ""
+    port: 9090
+replicaCount: 1

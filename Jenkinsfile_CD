@@ -76,144 +76,268 @@
 // }
 
 
+// pipeline {
+//     agent any
+
+//     parameters {
+//         string(name: 'ADMIN_SERVER_TAG', defaultValue: 'latest', description: 'Image tag for admin-server')
+//         string(name: 'API_GATEWAY_TAG', defaultValue: 'latest', description: 'Image tag for api-gateway')
+//         string(name: 'CONFIG_SERVER_TAG', defaultValue: 'latest', description: 'Image tag for config-server')
+//         string(name: 'CUSTOMERS_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for customers-service')
+//         string(name: 'DISCOVERY_SERVER_TAG', defaultValue: 'latest', description: 'Image tag for discovery-server')
+//         string(name: 'VETS_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for vets-service')
+//         string(name: 'VISITS_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for visits-service')
+//         string(name: 'GENAI_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for genai-service')
+//     }
+
+//     environment {
+//         DOCKER_IMAGE_BASE = "vh3956/spring-petclinic"
+//         KUBECONFIG = '/var/lib/jenkins/.kube/config'
+//         DOMAIN_BASE = 'dev.spring-petclinic.com'
+//     }
+
+//     stages {
+
+//         stage('Initialize Kubernetes Context') {
+//             steps {
+//                 script {
+//                     echo "Ensuring Minikube is running and context is valid..."
+//                     sh """
+//                         export KUBECONFIG=${KUBECONFIG}
+//                         minikube status
+//                         kubectl config delete-cluster minikube || true
+//                         kubectl config delete-context minikube || true
+//                         minikube update-context
+//                         kubectl config use-context minikube
+//                         kubectl config view --minify
+//                     """
+//                 }
+//             }
+//         }
+
+//         stage('Deploy Helm Chart') {
+//             steps {
+//                 script {
+//                     echo "Deploying Helm Chart for Spring PetClinic..."
+//                     sh """
+//                         helm upgrade --install spring-petclinic ./spring-petclinic \\
+//                             --namespace spring-petclinic \\
+//                             --create-namespace
+//                     """
+//                 }
+//             }
+//         }
+
+//         stage('Deploy Microservices') {
+//             steps {
+//                 script {
+//                     echo "Updating Kubernetes deployments with selected image tags..."
+
+//                     def services = [
+//                         [name: "admin-server",         tag: params.ADMIN_SERVER_TAG],
+//                         [name: "api-gateway",          tag: params.API_GATEWAY_TAG],
+//                         [name: "config-server",        tag: params.CONFIG_SERVER_TAG],
+//                         [name: "customers-service",    tag: params.CUSTOMERS_SERVICE_TAG],
+//                         [name: "discovery-server",     tag: params.DISCOVERY_SERVER_TAG],
+//                         [name: "vets-service",         tag: params.VETS_SERVICE_TAG],
+//                         [name: "visits-service",       tag: params.VISITS_SERVICE_TAG],
+//                         [name: "genai-service",        tag: params.GENAI_SERVICE_TAG]
+//                     ]
+
+//                     services.each { svc ->
+//                         def deployment = svc.name
+//                         def container = svc.name
+//                         def image = "${DOCKER_IMAGE_BASE}-${container}:${svc.tag}"
+
+//                         echo "🔄 Setting image for ${deployment} ➜ ${image}"
+//                         sh "kubectl set image deployment/${deployment} ${container}=${image} --record -n spring-petclinic"
+//                         sh "kubectl rollout status deployment/${deployment} -n spring-petclinic"
+
+//                         echo "🌐 Exposing ${deployment} via Ingress at http://${deployment}.dev.spring-petclinic.com"
+
+//                         sh """
+//                         cat <<EOF | kubectl apply -f -
+// apiVersion: networking.k8s.io/v1
+// kind: Ingress
+// metadata:
+//   name: admin-server-ingress
+//   namespace: spring-petclinic
+//   annotations:
+//     nginx.ingress.kubernetes.io/rewrite-target: /
+// spec:
+//   rules:
+//     - host: admin-server.dev.spring-petclinic.com
+//       http:
+//         paths:
+//           - path: /
+//             pathType: Prefix
+//             backend:
+//               service:
+//                 name: admin-server
+//                 port:
+//                   number: 8080
+// EOF
+//                         """
+
+//                     }
+//                 }
+//             }
+//         }
+
+//         stage('Echo Domain Endpoints') {
+//             steps {
+//                 script {
+//                     def endpoints = [
+//                         "admin-server",
+//                         "api-gateway",
+//                         "config-server",
+//                         "customers-service",
+//                         "discovery-server",
+//                         "vets-service",
+//                         "visits-service",
+//                         "genai-service"
+//                     ]
+
+//                     endpoints.each { service ->
+//                         echo "✅ ${service} ➜ http://${service}.${DOMAIN_BASE}"
+//                     }
+//                 }
+//             }
+//         }
+//     }
+
+//     post {
+//         success {
+//             echo "✅ CD deployment completed successfully with Ingress support and domain-based endpoints."
+//         }
+//         failure {
+//             echo "❌ CD deployment failed. Check the logs for more details."
+//         }
+//     }
+// }
+
+
 pipeline {
-    agent any
-
+    agent {
+        label 'k8s-agent'
+    }
+    
     parameters {
-        string(name: 'ADMIN_SERVER_TAG', defaultValue: 'latest', description: 'Image tag for admin-server')
-        string(name: 'API_GATEWAY_TAG', defaultValue: 'latest', description: 'Image tag for api-gateway')
-        string(name: 'CONFIG_SERVER_TAG', defaultValue: 'latest', description: 'Image tag for config-server')
-        string(name: 'CUSTOMERS_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for customers-service')
-        string(name: 'DISCOVERY_SERVER_TAG', defaultValue: 'latest', description: 'Image tag for discovery-server')
-        string(name: 'VETS_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for vets-service')
-        string(name: 'VISITS_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for visits-service')
-        string(name: 'GENAI_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for genai-service')
+        string(name: 'api_gateway', defaultValue: 'latest', description: '')
+        string(name: 'customers_service', defaultValue: 'latest', description: '')
+        string(name: 'vets_service', defaultValue: 'latest', description: '')
+        string(name: 'visits_service', defaultValue: 'latest', description: '')
+        string(name: 'admin_server', defaultValue: 'latest', description: '')
+        string(name: 'discovery_server', defaultValue: 'latest', description: '')
+        string(name: 'config_server', defaultValue: 'latest', description: '')
+        string(name: 'genai_service', defaultValue: 'latest', description: '')
     }
-
+    
     environment {
-        DOCKER_IMAGE_BASE = "vh3956/spring-petclinic"
-        KUBECONFIG = '/var/lib/jenkins/.kube/config'
-        DOMAIN_BASE = 'dev.spring-petclinic.com'
+        NAMESPACE = "developer-${BUILD_NUMBER}"
+        DOCKER_REGISTRY = 'vh3956/'
     }
-
+    
     stages {
+        stage('Checkout Repository') {
+            steps {
+                git branch: 'main', url: 'https://github.com/VH3956/DevOps_Project1.git'
+            }
+        }
 
-        stage('Initialize Kubernetes Context') {
+        stage('Get Commit IDs') {
             steps {
                 script {
-                    echo "Ensuring Minikube is running and context is valid..."
+
+                    env.API_GATEWAY_TAG = getCommitId('spring-petclinic-api-gateway', params.api_gateway)
+    
+                    env.CUSTOMERS_SERVICE_TAG = getCommitId('spring-petclinic-customers-service', params.customers_service)
+
+                    env.VETS_SERVICE_TAG = getCommitId('spring-petclinic-vets-service', params.vets_service)
+                    
+                    env.VISITS_SERVICE_TAG = getCommitId('spring-petclinic-visits-service', params.visits_service)
+
+                    env.ADMIN_SERVER_TAG = getCommitId('spring-petclinic-admin-server', params.admin_server)
+
+                    env.DISCOVERY_SERVER_TAG = getCommitId('spring-petclinic-discovery-server', params.discovery_server)
+                    
+                    env.CONFIG_SERVER_TAG = getCommitId('spring-petclinic-config-server', params.config_server)
+                
+                    env.GENAI_SERVICE_TAG = getCommitId('spring-petclinic-genai-service', params.genai_service)
+                }
+            }
+        }
+
+        stage('Create Namespace') {
+            steps {
+                sh "kubectl create namespace ${NAMESPACE}"
+                echo "Created namespace: ${NAMESPACE}"
+            }
+        }
+        
+        stage('Update Helm Values') {
+            steps {
+                script {
+                    // update namespace
+                    sh "sed -i 's/^namespace:.*/namespace: ${NAMESPACE}/' ./petclinic-chart/values.yaml"
+
+                    // update ingress host for api-gateway
+                    sh "sed -i '/api-gateway:/,/host:/ s/host:.*/host: petclinic-${NAMESPACE}.tech/' ./petclinic-chart/values.yaml"
+
+                    echo "Domain: petclinic-${NAMESPACE}.tech:30213"
+                }
+            }
+        }
+
+        stage('Deploy Services') {
+            steps {
+                script {
                     sh """
-                        export KUBECONFIG=${KUBECONFIG}
-                        minikube status
-                        kubectl config delete-cluster minikube || true
-                        kubectl config delete-context minikube || true
-                        minikube update-context
-                        kubectl config use-context minikube
-                        kubectl config view --minify
+                    helm upgrade --install petclinic ./spring-petclinic -n ${NAMESPACE} --create-namespace \\
+                        --set namespace=${NAMESPACE} \\
+                        --set services.api-gateway.tag=${API_GATEWAY_TAG} \\
+                        --set services.customers-service.tag=${CUSTOMERS_SERVICE_TAG} \\
+                        --set services.vets-service.tag=${VETS_SERVICE_TAG} \\
+                        --set services.visits-service.tag=${VISITS_SERVICE_TAG} \\
+                        --set services.admin-server.tag=${ADMIN_SERVER_TAG} \\
+                        --set services.discovery-server.tag=${DISCOVERY_SERVER_TAG} \\
+                        --set services.config-server.tag=${CONFIG_SERVER_TAG} \\
+                        --set services.genai-service.tag=${GENAI_SERVICE_TAG}
                     """
                 }
             }
         }
 
-        stage('Deploy Helm Chart') {
+        stage('Show Delete Link') {
             steps {
-                script {
-                    echo "Deploying Helm Chart for Spring PetClinic..."
-                    sh """
-                        helm upgrade --install spring-petclinic ./spring-petclinic \\
-                            --namespace spring-petclinic \\
-                            --create-namespace
-                    """
-                }
-            }
-        }
-
-        stage('Deploy Microservices') {
-            steps {
-                script {
-                    echo "Updating Kubernetes deployments with selected image tags..."
-
-                    def services = [
-                        [name: "admin-server",         tag: params.ADMIN_SERVER_TAG],
-                        [name: "api-gateway",          tag: params.API_GATEWAY_TAG],
-                        [name: "config-server",        tag: params.CONFIG_SERVER_TAG],
-                        [name: "customers-service",    tag: params.CUSTOMERS_SERVICE_TAG],
-                        [name: "discovery-server",     tag: params.DISCOVERY_SERVER_TAG],
-                        [name: "vets-service",         tag: params.VETS_SERVICE_TAG],
-                        [name: "visits-service",       tag: params.VISITS_SERVICE_TAG],
-                        [name: "genai-service",        tag: params.GENAI_SERVICE_TAG]
-                    ]
-
-                    services.each { svc ->
-                        def deployment = svc.name
-                        def container = svc.name
-                        def image = "${DOCKER_IMAGE_BASE}-${container}:${svc.tag}"
-
-                        echo "🔄 Setting image for ${deployment} ➜ ${image}"
-                        sh "kubectl set image deployment/${deployment} ${container}=${image} --record -n spring-petclinic"
-                        sh "kubectl rollout status deployment/${deployment} -n spring-petclinic"
-
-                        echo "🌐 Exposing ${deployment} via Ingress at http://${deployment}.dev.spring-petclinic.com"
-
-                        sh """
-                        cat <<EOF | kubectl apply -f -
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: admin-server-ingress
-  namespace: spring-petclinic
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-spec:
-  rules:
-    - host: admin-server.dev.spring-petclinic.com
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: admin-server
-                port:
-                  number: 8080
-EOF
-                        """
-
-                    }
-                }
-            }
-        }
-
-        stage('Echo Domain Endpoints') {
-            steps {
-                script {
-                    def endpoints = [
-                        "admin-server",
-                        "api-gateway",
-                        "config-server",
-                        "customers-service",
-                        "discovery-server",
-                        "vets-service",
-                        "visits-service",
-                        "genai-service"
-                    ]
-
-                    endpoints.each { service ->
-                        echo "✅ ${service} ➜ http://${service}.${DOMAIN_BASE}"
-                    }
-                }
+                echo "Current build: ${env.BUILD_URL}"
+                echo "Delete deployment: ${env.JENKINS_URL}job/delete-deployment/buildWithParameters?BUILD_NUMBER_TO_DELETE=${env.BUILD_NUMBER}"
             }
         }
     }
-
+    
     post {
-        success {
-            echo "✅ CD deployment completed successfully with Ingress support and domain-based endpoints."
-        }
         failure {
-            echo "❌ CD deployment failed. Check the logs for more details."
+            echo "Deployment failed. Cleaning up namespace ${NAMESPACE}"
+            sh "kubectl delete namespace ${NAMESPACE} || true"
         }
     }
 }
 
+def getCommitId(serviceName, branch) {
+    def cleanBranch = branch.trim()
+    def commitId = sh(
+        script: "git ls-remote https://github.com/VH3956/DevOps_Project1.git refs/heads/${cleanBranch} | cut -f 1 | head -n 1",
+        returnStdout: true
+    ).trim().take(7)
 
+    def tag = ""
+    if (cleanBranch == "main") {
+        tag = "main"
+    } else {
+        tag = "${cleanBranch}-${commitId}"
+    }
+
+    echo "Service: ${serviceName}, Branch: ${cleanBranch}, Commit ID: ${commitId}, Tag: ${tag}"
+    return tag
+}
