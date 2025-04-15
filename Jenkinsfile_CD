@@ -324,18 +324,33 @@ pipeline {
 
 def getCommitId(serviceName, branch) {
     def cleanBranch = branch.trim()
-    def commitId = sh(
-        script: "git ls-remote https://github.com/VH3956/DevOps_Project1.git refs/heads/${cleanBranch} | cut -f 1 | head -n 1",
-        returnStdout: true
-    ).trim().take(7)
-
     def tag = ""
-    if (cleanBranch == "main") {
+
+    // If branch is "latest", use it directly as the tag
+    if (cleanBranch == "latest") {
         tag = "latest"
+        echo "Service: ${serviceName}, Branch: ${cleanBranch}, Using tag: ${tag} (direct)"
     } else {
-        tag = "${commitId}"
+        // Fetch commit ID for actual branches
+        def commitId = sh(
+            script: "git ls-remote https://github.com/VH3956/DevOps_Project1.git refs/heads/${cleanBranch} | cut -f 1 | head -n 1",
+            returnStdout: true
+        ).trim().take(7)
+
+        // Handle empty commitId (invalid branch)
+        if (!commitId) {
+            error "No commit found for branch '${cleanBranch}' in repo. Please check the branch name."
+        }
+
+        // Set tag based on branch
+        if (cleanBranch == "main") {
+            tag = "latest"
+        } else {
+            tag = "${commitId}"
+        }
+
+        echo "Service: ${serviceName}, Branch: ${cleanBranch}, Commit ID: ${commitId}, Tag: ${tag}"
     }
 
-    echo "Service: ${serviceName}, Branch: ${cleanBranch}, Commit ID: ${commitId}, Tag: ${tag}"
     return tag
 }
