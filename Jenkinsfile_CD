@@ -218,9 +218,7 @@
 
 
 pipeline {
-    agent {
-        label 'k8s-agent'
-    }
+    agent any
     
     parameters {
         string(name: 'api_gateway', defaultValue: 'latest', description: '')
