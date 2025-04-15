@@ -276,8 +276,8 @@ pipeline {
         stage('Update Helm Values') {
             steps {
                 script {
-                    // update namespace
-                    sh "sed -i 's/^namespace:.*/namespace: ${NAMESPACE}/' ./petclinic-chart/values.yaml"
+                    // update spring-petclinicnamespace
+                    sh "sed -i 's/^namespace:.*/namespace: ${NAMESPACE}/' ./spring-petclinic/values.yaml"
 
                     // update ingress host for api-gateway
                     sh "sed -i '/api-gateway:/,/host:/ s/host:.*/host: petclinic-${NAMESPACE}.tech/' ./petclinic-chart/values.yaml"
