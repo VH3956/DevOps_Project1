@@ -10,3 +10,4 @@ spring:
         native:
           searchLocations: file:///${GIT_REPO}
 
+
