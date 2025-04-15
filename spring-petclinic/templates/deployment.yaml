@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: {{ $config.containerName }}
-          image: {{ $config.image }}:{{ $config.tag }}-{{ if $config.commit }}{{ $config.commit }}{{ else }}{{ $.Values.version }}{{ end }}
+          image: {{ $config.image }}:{{ $config.tag }}
           imagePullPolicy: Always
           ports:
             - containerPort: {{ $config.port }}
