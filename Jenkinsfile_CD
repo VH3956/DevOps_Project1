@@ -270,7 +270,6 @@ pipeline {
             steps {
                 sh "kubectl create namespace ${NAMESPACE}"
                 echo "Created namespace: ${NAMESPACE}"
-                sh "kubectl enable ingress-nginx --namespace ${NAMESPACE}"
             }
         }
         
