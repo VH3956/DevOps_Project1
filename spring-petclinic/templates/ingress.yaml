@@ -1,25 +1,21 @@
-{{- range $name, $config := .Values.services }}
-{{- if and $config.ingress $config.ingress.enabled }}
----
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ $config.containerName }}-ingress 
-  namespace: {{ $.Values.namespace }}
-  labels:
-    name: {{ $config.containerName }}-ingress
+  name: spring-petclinic-ingress
+  namespace: spring-petclinic
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
   ingressClassName: nginx
   rules:
-  - host: {{ $config.ingress.host }}
+  - host: dev.spring-petclinic.com
     http:
       paths:
-      - pathType: Prefix
-        path: "/"
+      - path: /
+        pathType: Prefix
         backend:
           service:
-            name: {{ $config.containerName }}
+            name: api-gateway
             port:
-              number: {{ $config.port }}
-{{- end }}
-{{- end }}
+              number: 8000
