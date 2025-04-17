@@ -1,0 +1,40 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(name: 'BUILD_NUMBER_TO_DELETE', defaultValue: '', description: 'Build number of deploying job')
+    }
+
+    environment {
+        NAMESPACE = "spring-petclinic-${params.BUILD_NUMBER_TO_DELETE}" // hoặc: "spring-petclinic-${params.BUILD_NUMBER_TO_DELETE}"
+    }
+
+    stages {
+        stage('Delete Helm Release') {
+            steps {
+                script {
+                    echo "Deleting Helm release and namespace: ${NAMESPACE}"
+                    
+                    sh "helm uninstall petclinic -n ${NAMESPACE} || echo 'Helm release isnt installed'"
+                }
+            }
+        }
+
+        stage('Delete Namespace') {
+            steps {
+                script {
+                    sh "kubectl delete namespace ${NAMESPACE} || echo 'Namespace doesnt exist'"
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Deleting successfully namespace: ${params.BUILD_NUMBER_TO_DELETE}"
+        }
+        failure {
+            echo "Error trying to delete ${params.BUILD_NUMBER_TO_DELETE}"
+        }
+    }
+}
