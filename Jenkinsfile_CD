@@ -163,7 +163,7 @@ pipeline {
 
                         // Kiểm tra và tạo Service nếu chưa tồn tại
                         sh """
-                        kubectl get service ${service} -n spring-petclinic || kubectl expose deployment ${service} --type=ClusterIP --port=8080 -n spring-petclinic
+                        kubectl get service ${service} -n spring-petclinic || kubectl expose deployment ${service} --type=ClusterIP --port=8000 -n spring-petclinic
                         """
 
                         echo "Updating image for ${service} with tag ${imageTag}"
