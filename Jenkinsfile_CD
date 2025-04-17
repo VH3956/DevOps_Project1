@@ -76,254 +76,249 @@
 // }
 
 
-pipeline {
-    agent any
-
-    parameters {
-        string(name: 'ADMIN_SERVER_TAG', defaultValue: 'latest', description: 'Image tag for admin-server')
-        string(name: 'API_GATEWAY_TAG', defaultValue: 'latest', description: 'Image tag for api-gateway')
-        string(name: 'CONFIG_SERVER_TAG', defaultValue: 'latest', description: 'Image tag for config-server')
-        string(name: 'CUSTOMERS_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for customers-service')
-        string(name: 'DISCOVERY_SERVER_TAG', defaultValue: 'latest', description: 'Image tag for discovery-server')
-        string(name: 'VETS_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for vets-service')
-        string(name: 'VISITS_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for visits-service')
-        string(name: 'GENAI_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for genai-service')
-    }
-
-    environment {
-        DOCKER_IMAGE = 'vh3956/spring-petclinic'
-    }
-
-    stages {
-
-        stage('Deploy Helm Charts') {
-            steps {
-                script {
-                    echo "Cleaning up old resources..."
-                    sh """
-                    kubectl delete deployments --all -n spring-petclinic --ignore-not-found=true
-                    """
-
-                    echo "Deploying ingress-nginx..."
-                    sh """
-                    helm upgrade --install ingress-nginx ingress-nginx \
-                        --repo https://kubernetes.github.io/ingress-nginx \
-                        --namespace ingress-nginx --create-namespace \
-                        --set controller.service.type=LoadBalancer
-                    """
-
-                    echo "Deploying Spring PetClinic Helm Chart..."
-                    sh """
-                    helm upgrade --install spring-petclinic ./spring-petclinic \
-                    --namespace spring-petclinic --create-namespace \
-                    --set ingress.enabled=true \
-                    --set ingress.hosts[0].host=dev.spring-petclinic.com \
-                    --set ingress.hosts[0].paths[0].path="/" \
-                    --set ingress.hosts[0].paths[0].pathType=Prefix \
-                    --force \
-                    """
-                }
-            }
-        }
-
-        stage('Update Images') {
-            steps {
-                script {
-                    // Tạo namespace nếu chưa tồn tại
-                    sh """
-                    kubectl get namespace spring-petclinic || kubectl create namespace spring-petclinic
-                    """
-
-                    // Danh sách các services trong ứng dụng Spring PetClinic
-                    def services = [
-                        'config-server', // Deploy config-server first
-                        'discovery-server',
-                        'api-gateway',
-                        'admin-server',
-                        'customers-service',
-                        'vets-service',
-                        'visits-service',
-                        'genai-service'
-                    ]
-
-                    // Nếu SERVICE được chỉ định, chỉ deploy service đó
-                    if (params.SERVICE) {
-                        services = [params.SERVICE]
-                    }
-
-                    def imageTag = params.COMMIT_ID ?: 'latest'
-
-                    for (service in services) {
-                        echo "Ensuring deployment and service for ${service} exist..."
-
-                        // Kiểm tra và tạo Deployment nếu chưa tồn tại
-                        sh """
-                        kubectl get deployment ${service} -n spring-petclinic || kubectl create deployment ${service} --image=${DOCKER_IMAGE}-${service}:${imageTag} -n spring-petclinic
-                        """
-
-                        // Kiểm tra và tạo Service nếu chưa tồn tại
-                        sh """
-                        kubectl get service ${service} -n spring-petclinic || kubectl expose deployment ${service} --type=ClusterIP --port=8000 -n spring-petclinic
-                        """
-
-                        echo "Updating image for ${service} with tag ${imageTag}"
-
-                        // Update image for the service
-                        sh """
-                        kubectl set image deployment/${service} ${service}=${DOCKER_IMAGE}-${service}:${imageTag} -n spring-petclinic
-                        kubectl rollout restart deployment/${service} -n spring-petclinic
-                        """
-                    }
-                }
-            }
-        }
-    }
-
-    post {
-        success {
-            echo "Deployment successful! Access the service at http://${params.BRANCH == 'main' ? 'dev.spring-petclinic.com' : params.BRANCH == 'RC' ? 'rc.spring-petclinic.com' : params.COMMIT_ID + '.dev.spring-petclinic.com'}"
-        }
-        failure {
-            echo "Deployment failed. Check logs for details."
-        }
-    }
-}
-
-
 // pipeline {
 //     agent any
-    
+
 //     parameters {
-//         string(name: 'api_gateway', defaultValue: 'latest', description: '')
-//         string(name: 'customers_service', defaultValue: 'latest', description: '')
-//         string(name: 'vets_service', defaultValue: 'latest', description: '')
-//         string(name: 'visits_service', defaultValue: 'latest', description: '')
-//         string(name: 'admin_server', defaultValue: 'latest', description: '')
-//         string(name: 'discovery_server', defaultValue: 'latest', description: '')
-//         string(name: 'config_server', defaultValue: 'latest', description: '')
-//         string(name: 'genai_service', defaultValue: 'latest', description: '')
+//         string(name: 'ADMIN_SERVER_TAG', defaultValue: 'latest', description: 'Image tag for admin-server')
+//         string(name: 'API_GATEWAY_TAG', defaultValue: 'latest', description: 'Image tag for api-gateway')
+//         string(name: 'CONFIG_SERVER_TAG', defaultValue: 'latest', description: 'Image tag for config-server')
+//         string(name: 'CUSTOMERS_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for customers-service')
+//         string(name: 'DISCOVERY_SERVER_TAG', defaultValue: 'latest', description: 'Image tag for discovery-server')
+//         string(name: 'VETS_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for vets-service')
+//         string(name: 'VISITS_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for visits-service')
+//         string(name: 'GENAI_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for genai-service')
 //     }
-    
+
 //     environment {
-//         NAMESPACE = "developer-${BUILD_NUMBER}"
-//         DOCKER_REGISTRY = 'vh3956/'
+//         DOCKER_IMAGE = 'vh3956/spring-petclinic'
 //     }
-    
+
 //     stages {
-//         stage('Checkout Repository') {
-//             steps {
-//                 git branch: 'main', url: 'https://github.com/VH3956/DevOps_Project1.git'
-//             }
-//         }
 
-//         stage('Get Commit IDs') {
+//         stage('Deploy Helm Charts') {
 //             steps {
 //                 script {
-
-//                     env.API_GATEWAY_TAG = getCommitId('spring-petclinic-api-gateway', params.api_gateway)
-    
-//                     env.CUSTOMERS_SERVICE_TAG = getCommitId('spring-petclinic-customers-service', params.customers_service)
-
-//                     env.VETS_SERVICE_TAG = getCommitId('spring-petclinic-vets-service', params.vets_service)
-                    
-//                     env.VISITS_SERVICE_TAG = getCommitId('spring-petclinic-visits-service', params.visits_service)
-
-//                     env.ADMIN_SERVER_TAG = getCommitId('spring-petclinic-admin-server', params.admin_server)
-
-//                     env.DISCOVERY_SERVER_TAG = getCommitId('spring-petclinic-discovery-server', params.discovery_server)
-                    
-//                     env.CONFIG_SERVER_TAG = getCommitId('spring-petclinic-config-server', params.config_server)
-                
-//                     env.GENAI_SERVICE_TAG = getCommitId('spring-petclinic-genai-service', params.genai_service)
-//                 }
-//             }
-//         }
-
-//         stage('Create Namespace') {
-//             steps {
-//                 sh "kubectl create namespace ${NAMESPACE}"
-//                 echo "Created namespace: ${NAMESPACE}"
-//             }
-//         }
-        
-//         stage('Update Helm Values') {
-//             steps {
-//                 script {
-//                     // update spring-petclinicnamespace
-//                     sh "sed -i 's/^namespace:.*/namespace: ${NAMESPACE}/' ./spring-petclinic/values.yaml"
-
-//                     // update ingress host for api-gateway
-//                     sh "sed -i '/api-gateway:/,/host:/ s/host:.*/host: petclinic-${NAMESPACE}.tech/' ./spring-petclinic/values.yaml"
-
-//                     echo "Domain: petclinic-${NAMESPACE}.tech:30213"
-//                 }
-//             }
-//         }
-
-//         stage('Deploy Services') {
-//             steps {
-//                 script {
+//                     echo "Cleaning up old resources..."
 //                     sh """
-//                     helm upgrade --install petclinic ./spring-petclinic -n ${NAMESPACE} --create-namespace \\
-//                         --set namespace=${NAMESPACE} \\
-//                         --set services.api-gateway.tag=${API_GATEWAY_TAG} \\
-//                         --set services.customers-service.tag=${CUSTOMERS_SERVICE_TAG} \\
-//                         --set services.vets-service.tag=${VETS_SERVICE_TAG} \\
-//                         --set services.visits-service.tag=${VISITS_SERVICE_TAG} \\
-//                         --set services.admin-server.tag=${ADMIN_SERVER_TAG} \\
-//                         --set services.discovery-server.tag=${DISCOVERY_SERVER_TAG} \\
-//                         --set services.config-server.tag=${CONFIG_SERVER_TAG} \\
-//                         --set services.genai-service.tag=${GENAI_SERVICE_TAG}
+//                     kubectl delete deployments --all -n spring-petclinic --ignore-not-found=true
+//                     """
+
+//                     echo "Deploying ingress-nginx..."
+//                     sh """
+//                     helm upgrade --install ingress-nginx ingress-nginx \
+//                         --repo https://kubernetes.github.io/ingress-nginx \
+//                         --namespace ingress-nginx --create-namespace \
+//                         --set controller.service.type=LoadBalancer
+//                     """
+
+//                     echo "Deploying Spring PetClinic Helm Chart..."
+//                     sh """
+//                     helm upgrade --install spring-petclinic ./spring-petclinic \
+//                     --namespace spring-petclinic --create-namespace \
+//                     --set ingress.enabled=true \
+//                     --set ingress.hosts[0].host=dev.spring-petclinic.com \
+//                     --set ingress.hosts[0].paths[0].path="/" \
+//                     --set ingress.hosts[0].paths[0].pathType=Prefix \
+//                     --force \
 //                     """
 //                 }
 //             }
 //         }
 
-//         stage('Show Delete Link') {
+//         stage('Update Images') {
 //             steps {
-//                 echo "Current build: ${env.BUILD_URL}"
-//                 echo "Delete deployment: ${env.JENKINS_URL}job/delete-deployment/buildWithParameters?BUILD_NUMBER_TO_DELETE=${env.BUILD_NUMBER}"
+//                 script {
+//                     // Tạo namespace nếu chưa tồn tại
+//                     sh """
+//                     kubectl get namespace spring-petclinic || kubectl create namespace spring-petclinic
+//                     """
+
+//                     // Danh sách các services trong ứng dụng Spring PetClinic
+//                     def services = [
+//                         'config-server', // Deploy config-server first
+//                         'discovery-server',
+//                         'api-gateway',
+//                         'admin-server',
+//                         'customers-service',
+//                         'vets-service',
+//                         'visits-service',
+//                         'genai-service'
+//                     ]
+
+//                     // Nếu SERVICE được chỉ định, chỉ deploy service đó
+//                     if (params.SERVICE) {
+//                         services = [params.SERVICE]
+//                     }
+
+//                     def imageTag = params.COMMIT_ID ?: 'latest'
+
+//                     for (service in services) {
+//                         echo "Ensuring deployment and service for ${service} exist..."
+
+//                         // Kiểm tra và tạo Deployment nếu chưa tồn tại
+//                         sh """
+//                         kubectl get deployment ${service} -n spring-petclinic || kubectl create deployment ${service} --image=${DOCKER_IMAGE}-${service}:${imageTag} -n spring-petclinic
+//                         """
+
+//                         // Kiểm tra và tạo Service nếu chưa tồn tại
+//                         sh """
+//                         kubectl get service ${service} -n spring-petclinic || kubectl expose deployment ${service} --type=ClusterIP --port=8000 -n spring-petclinic
+//                         """
+
+//                         echo "Updating image for ${service} with tag ${imageTag}"
+
+//                         // Update image for the service
+//                         sh """
+//                         kubectl set image deployment/${service} ${service}=${DOCKER_IMAGE}-${service}:${imageTag} -n spring-petclinic
+//                         kubectl rollout restart deployment/${service} -n spring-petclinic
+//                         """
+//                     }
+//                 }
 //             }
 //         }
 //     }
-    
+
 //     post {
+//         success {
+//             echo "Deployment successful! Access the service at http://${params.BRANCH == 'main' ? 'dev.spring-petclinic.com' : params.BRANCH == 'RC' ? 'rc.spring-petclinic.com' : params.COMMIT_ID + '.dev.spring-petclinic.com'}"
+//         }
 //         failure {
-//             echo "Deployment failed. Cleaning up namespace ${NAMESPACE}"
-//             sh "kubectl delete namespace ${NAMESPACE} || true"
+//             echo "Deployment failed. Check logs for details."
 //         }
 //     }
 // }
 
-// def getCommitId(serviceName, branch) {
-//     def cleanBranch = branch.trim()
-//     def tag = ""
 
-//     // If branch is "latest", use it directly as the tag
-//     if (cleanBranch == "latest") {
-//         tag = "latest"
-//         echo "Service: ${serviceName}, Branch: ${cleanBranch}, Using tag: ${tag} (direct)"
-//     } else {
-//         // Fetch commit ID for actual branches
-//         def commitId = sh(
-//             script: "git ls-remote https://github.com/VH3956/DevOps_Project1.git refs/heads/${cleanBranch} | cut -f 1 | head -n 1",
-//             returnStdout: true
-//         ).trim().take(7)
+pipeline {
+    agent any
+    
+    parameters {
+        string(name: 'api_gateway', defaultValue: 'latest', description: '')
+        string(name: 'customers_service', defaultValue: 'latest', description: '')
+        string(name: 'vets_service', defaultValue: 'latest', description: '')
+        string(name: 'visits_service', defaultValue: 'latest', description: '')
+        string(name: 'admin_server', defaultValue: 'latest', description: '')
+        string(name: 'discovery_server', defaultValue: 'latest', description: '')
+        string(name: 'config_server', defaultValue: 'latest', description: '')
+        string(name: 'genai_service', defaultValue: 'latest', description: '')
+    }
+    
+    environment {
+        NAMESPACE = "spring-petclinic"
+        DOCKER_REGISTRY = 'vh3956/'
+    }
+    
+    stages {
+        stage('Checkout Repository') {
+            steps {
+                git branch: 'main', url: 'https://github.com/VH3956/DevOps_Project1.git'
+            }
+        }
 
-//         // Handle empty commitId (invalid branch)
-//         if (!commitId) {
-//             error "No commit found for branch '${cleanBranch}' in repo. Please check the branch name."
-//         }
+        stage('Get Commit IDs') {
+            steps {
+                script {
 
-//         // Set tag based on branch
-//         if (cleanBranch == "main") {
-//             tag = "latest"
-//         } else {
-//             tag = "${commitId}"
-//         }
+                    env.API_GATEWAY_TAG = getCommitId('spring-petclinic-api-gateway', params.api_gateway)
+    
+                    env.CUSTOMERS_SERVICE_TAG = getCommitId('spring-petclinic-customers-service', params.customers_service)
 
-//         echo "Service: ${serviceName}, Branch: ${cleanBranch}, Commit ID: ${commitId}, Tag: ${tag}"
-//     }
+                    env.VETS_SERVICE_TAG = getCommitId('spring-petclinic-vets-service', params.vets_service)
+                    
+                    env.VISITS_SERVICE_TAG = getCommitId('spring-petclinic-visits-service', params.visits_service)
 
-//     return tag
-// }
+                    env.ADMIN_SERVER_TAG = getCommitId('spring-petclinic-admin-server', params.admin_server)
+
+                    env.DISCOVERY_SERVER_TAG = getCommitId('spring-petclinic-discovery-server', params.discovery_server)
+                    
+                    env.CONFIG_SERVER_TAG = getCommitId('spring-petclinic-config-server', params.config_server)
+                
+                    env.GENAI_SERVICE_TAG = getCommitId('spring-petclinic-genai-service', params.genai_service)
+                }
+            }
+        }
+
+        stage('Create Namespace') {
+            steps {
+                sh "kubectl create namespace ${NAMESPACE}"
+                echo "Created namespace: ${NAMESPACE}"
+            }
+        }
+        
+        stage('Update Helm Values') {
+            steps {
+                script {
+                    // update spring-petclinic namespace
+                    sh "sed -i 's/^namespace:.*/namespace: ${NAMESPACE}/' ./spring-petclinic/values.yaml"
+                }
+            }
+        }
+
+        stage('Deploy Services') {
+            steps {
+                script {
+                    sh """
+                    helm upgrade --install petclinic ./spring-petclinic -n ${NAMESPACE} --create-namespace \\
+                        --set namespace=${NAMESPACE} \\
+                        --set services.api-gateway.tag=${API_GATEWAY_TAG} \\
+                        --set services.customers-service.tag=${CUSTOMERS_SERVICE_TAG} \\
+                        --set services.vets-service.tag=${VETS_SERVICE_TAG} \\
+                        --set services.visits-service.tag=${VISITS_SERVICE_TAG} \\
+                        --set services.admin-server.tag=${ADMIN_SERVER_TAG} \\
+                        --set services.discovery-server.tag=${DISCOVERY_SERVER_TAG} \\
+                        --set services.config-server.tag=${CONFIG_SERVER_TAG} \\
+                        --set services.genai-service.tag=${GENAI_SERVICE_TAG}
+                    """
+                }
+            }
+        }
+
+        stage('Show Delete Link') {
+            steps {
+                echo "Current build: ${env.BUILD_URL}"
+                echo "Delete deployment: ${env.JENKINS_URL}job/delete-deployment/buildWithParameters?BUILD_NUMBER_TO_DELETE=${env.BUILD_NUMBER}"
+            }
+        }
+    }
+    
+    post {
+        failure {
+            echo "Deployment failed. Cleaning up namespace ${NAMESPACE}"
+            sh "kubectl delete namespace ${NAMESPACE} || true"
+        }
+    }
+}
+
+def getCommitId(serviceName, branch) {
+    def cleanBranch = branch.trim()
+    def tag = ""
+
+    // If branch is "latest", use it directly as the tag
+    if (cleanBranch == "latest") {
+        tag = "latest"
+        echo "Service: ${serviceName}, Branch: ${cleanBranch}, Using tag: ${tag} (direct)"
+    } else {
+        // Fetch commit ID for actual branches
+        def commitId = sh(
+            script: "git ls-remote https://github.com/VH3956/DevOps_Project1.git refs/heads/${cleanBranch} | cut -f 1 | head -n 1",
+            returnStdout: true
+        ).trim().take(7)
+
+        // Handle empty commitId (invalid branch)
+        if (!commitId) {
+            error "No commit found for branch '${cleanBranch}' in repo. Please check the branch name."
+        }
+
+        // Set tag based on branch
+        if (cleanBranch == "main") {
+            tag = "latest"
+        } else {
+            tag = "${commitId}"
+        }
+
+        echo "Service: ${serviceName}, Branch: ${cleanBranch}, Commit ID: ${commitId}, Tag: ${tag}"
+    }
+
+    return tag
+}
