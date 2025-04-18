@@ -4,7 +4,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ $config.containerName }}
-  namespace: {{ $.Values.namespace }}
   labels:
     app: {{ $config.containerName }}
 spec:
