@@ -6,26 +6,7 @@ pipeline {
         DOCKER_IMAGE = "vh3956/"
     }
 
-    options {
-        skipDefaultCheckout()
-    }
-
     stages {
-        stage('Check Branch') {
-            agent { label 'built-in' }
-            steps {
-                script {
-                    if (env.BRANCH_NAME != 'main') {
-                        echo "This pipeline only runs on the 'main' branch. Current branch: ${env.BRANCH_NAME}"
-                        currentBuild.result = 'ABORTED'
-                        return
-                    } else {
-                        echo "Running on main branch: ${env.BRANCH_NAME}"
-                    }
-                }
-            }
-        }
-
         stage('Check Changes') {
             agent { label 'built-in' }
             steps {
@@ -33,8 +14,11 @@ pipeline {
                     echo "Commit SHA: ${GIT_COMMIT}"
                     def changedFiles = []
                     env.NO_SERVICES_TO_BUILD = 'false'
-
-                    changedFiles = sh(script: "git diff --name-only HEAD^", returnStdout: true).trim().split('\n').toList()
+                    if (env.CHANGE_TARGET) {
+                        changedFiles = sh(script: "git diff --name-only HEAD^", returnStdout: true).trim().split('\n').toList()
+                    } else {
+                        changedFiles = sh(script: "git diff --name-only HEAD^", returnStdout: true).trim().split('\n').toList()
+                    }
 
                     def services = [
                         'spring-petclinic-customers-service',
@@ -46,7 +30,6 @@ pipeline {
                         'spring-petclinic-discovery-server',
                         'spring-petclinic-genai-service'
                     ]
-
                     echo "Changed files: ${changedFiles}"
 
                     if (changedFiles.isEmpty() || changedFiles[0] == '') {
@@ -140,7 +123,7 @@ pipeline {
             echo "❌ Deployment failed. Please check logs."
         }
         aborted {
-            echo "⚠️ Pipeline skipped due to no service changes or wrong branch."
+            echo "⚠️ Pipeline skipped due to no service changes."
         }
     }
 }
