@@ -1,0 +1,103 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_HUB_CREDS = credentials('docker-hub-cre')
+        DOCKER_IMAGE = "vh3956/"
+        IMAGE_TAG = ''
+    }
+
+    stages {
+        stage('Check Branch or Tag') {
+            steps {
+                script {
+                    def branch = env.BRANCH_NAME
+                    if (branch ==~ /^v\d+\.\d+\.\d+$/) {
+                        echo "This is a tag release: ${branch}"
+                        env.IMAGE_TAG = branch
+                    } else if (branch ==~ /^rc_v\d+\.\d+\.\d+$/) {
+                        echo "This is a release candidate branch: ${branch}"
+                        env.IMAGE_TAG = branch.replaceFirst(/^rc_/, '')
+                    } else {
+                        echo "Not a release/tag branch. Skipping pipeline."
+                        currentBuild.result = 'ABORTED'
+                        return
+                    }
+                }
+            }
+        }
+
+        stage('Build & Push Image') {
+            steps {
+                script {
+                    sh './mvnw clean install -P buildDocker'
+
+                    def services = [
+                        'admin-server',
+                        'api-gateway',
+                        'config-server',
+                        'customers-service',
+                        'discovery-server',
+                        'vets-service',
+                        'visits-service',
+                        'genai-service',
+                    ]
+
+                    sh "echo ${DOCKER_HUB_CREDS_PSW} | docker login -u ${DOCKER_HUB_CREDS_USR} --password-stdin"
+
+                    for (svc in services) {
+                        def img = "${DOCKER_IMAGE}${svc}"
+                        sh """
+                            docker tag ${img} ${img}:${IMAGE_TAG}
+                            docker push ${img}:${IMAGE_TAG}
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Staging') {
+            steps {
+                script {
+                    // Check and create namespace 'staging' if it does not exist
+                    sh """
+                        if ! kubectl get namespace staging > /dev/null 2>&1; then
+                            echo "Namespace 'staging' does not exist. Creating..."
+                            kubectl create namespace staging
+                        else
+                            echo "Namespace 'staging' already exists."
+                        fi
+                    """
+
+                    def services = [
+                        'admin-server',
+                        'api-gateway',
+                        'config-server',
+                        'customers-service',
+                        'discovery-server',
+                        'vets-service',
+                        'visits-service',
+                        'genai-service',
+                    ]
+
+                    for (svc in services) {
+                        def img = "${DOCKER_IMAGE}${svc}:${IMAGE_TAG}"
+                        sh "kubectl set image deployment/${svc} ${svc}=${img} -n staging || true"
+                    }
+                }
+            }
+        }
+
+
+    post {
+        success {
+            echo "Deployed to staging with tag ${env.IMAGE_TAG}"
+        }
+        failure {
+            echo "Pipeline failed."
+        }
+        aborted {
+            echo "Pipeline aborted due to invalid branch/tag."
+        }
+    }
+}
