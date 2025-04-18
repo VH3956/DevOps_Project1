@@ -12,6 +12,8 @@ pipeline {
             steps {
                 script {
                     def branch = env.BRANCH_NAME
+                    echo "Current branch or tag: ${branch}"
+
                     if (branch ==~ /^v\d+\.\d+\.\d+$/) {
                         echo "This is a tag release: ${branch}"
                         env.IMAGE_TAG = branch
@@ -19,7 +21,7 @@ pipeline {
                         echo "This is a release candidate branch: ${branch}"
                         env.IMAGE_TAG = branch.replaceFirst(/^rc_/, '')
                     } else {
-                        echo "Not a release/tag branch. Skipping pipeline."
+                        echo "Branch ${branch} is not a release tag or RC branch. Skipping pipeline."
                         currentBuild.result = 'ABORTED'
                         return
                     }
