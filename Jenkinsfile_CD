@@ -259,7 +259,7 @@ pipeline {
             steps {
                 script {
                     sh """
-                    helm upgrade --install petclinic ./spring-petclinic -n ${NAMESPACE} --create-namespace \\
+                    helm upgrade --install spring-petclinic ./spring-petclinic -n ${NAMESPACE} --create-namespace \\
                         --set namespace=${NAMESPACE} \\
                         --set services.api-gateway.tag=${API_GATEWAY_TAG} \\
                         --set services.customers-service.tag=${CUSTOMERS_SERVICE_TAG} \\
