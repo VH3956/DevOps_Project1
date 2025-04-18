@@ -8,10 +8,18 @@ pipeline {
 
     stages {
         stage('Check Changes') {
-            agent { label 'built-in' }
+            agent { label 'built-in' } // Chạy trên Master
             steps {
                 script {
-                    def changedFiles = sh(script: "git diff --name-only HEAD^", returnStdout: true).trim().split('\n')
+                    echo "Commit SHA: ${GIT_COMMIT}"
+                    def changedFiles = []
+                    env.NO_SERVICES_TO_BUILD = 'false'
+                    if (env.CHANGE_TARGET) {
+                        changedFiles = sh(script: "git diff --name-only HEAD^", returnStdout: true).trim().split('\n').toList()
+                    } else {
+                        changedFiles = sh(script: "git diff --name-only HEAD^", returnStdout: true).trim().split('\n').toList()
+                    }
+
                     def services = [
                         'spring-petclinic-customers-service',
                         'spring-petclinic-visits-service',
@@ -22,23 +30,28 @@ pipeline {
                         'spring-petclinic-discovery-server',
                         'spring-petclinic-genai-service'
                     ]
-
                     echo "Changed files: ${changedFiles}"
-                    def detected = []
-                    for (service in services) {
-                        if (changedFiles.any { it.startsWith(service + '/') }) {
-                            detected << service
-                        }
-                    }
 
-                    if (detected.isEmpty()) {
-                        echo "No services changed. Skipping pipeline."
+                    if (changedFiles.isEmpty() || changedFiles[0] == '') {
+                        echo "No changes detected. Skipping pipeline."
                         currentBuild.result = 'ABORTED'
                         return
                     }
 
-                    env.SERVICE_CHANGED = detected.join(',')
-                    env.NO_SERVICES_TO_BUILD = 'false'
+                    def detectedServices = []
+                    for (service in services) {
+                        if (changedFiles.any { it.startsWith(service + '/') }) {
+                            detectedServices << service
+                        }
+                    }
+
+                    if (detectedServices.isEmpty()) {
+                        echo "No relevant service changes detected. Skipping pipeline."
+                        env.NO_SERVICES_TO_BUILD = 'true'
+                    } else {
+                        echo "Detected Services: ${detectedServices}"
+                        env.SERVICE_CHANGED = detectedServices.join(",")
+                    }
                 }
             }
         }
@@ -46,10 +59,7 @@ pipeline {
         stage('Build and Push Changed Services') {
             agent { label 'built-in' }
             when {
-                allOf {
-                    expression { env.NO_SERVICES_TO_BUILD == 'false' }
-                    branch 'main'
-                }
+                expression { env.NO_SERVICES_TO_BUILD == 'false' }
             }
             steps {
                 script {
@@ -80,10 +90,7 @@ pipeline {
         stage('Deploy to dev namespace') {
             agent { label 'built-in' }
             when {
-                allOf {
-                    expression { env.NO_SERVICES_TO_BUILD == 'false' }
-                    branch 'main'
-                }
+                expression { env.NO_SERVICES_TO_BUILD == 'false' }
             }
             steps {
                 script {
