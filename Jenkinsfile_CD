@@ -251,6 +251,12 @@ pipeline {
                 script {
                     // update spring-petclinic namespace
                     sh "sed -i 's/^namespace:.*/namespace: ${NAMESPACE}/' ./spring-petclinic/values.yaml"
+
+                    // update ingress host for api-gateway
+ 
+                    sh "sed -i '/api-gateway:/,/host:/ s/host:.*/host: petclinic-${NAMESPACE}.tech/' ./spring-petclinic/values.yaml"
+
+                    echo "Domain: petclinic-${NAMESPACE}.tech:30213"
                 }
             }
         }
