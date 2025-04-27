@@ -1,195 +1,3 @@
-// pipeline {
-//     agent any
-
-//     parameters {
-//         string(name: 'BRANCH', defaultValue: 'main', description: 'Branch to deploy (e.g., main, RC, or feature branch)')
-//         string(name: 'SERVICE', defaultValue: '', description: 'Service to deploy (e.g., customers-service, vets-service)')
-//         string(name: 'COMMIT_ID', defaultValue: '', description: 'Commit ID for the Docker image (leave empty for latest)')
-//     }
-
-//     environment {
-//         DOCKER_IMAGE = 'your-dockerhub-username/spring-petclinic'
-//         KUBECONFIG = credentials('kubeconfig-cred') // Kubeconfig for Kubernetes cluster
-//     }
-
-//     stages {
-//         stage('Deploy to Kubernetes') {
-//             steps {
-//                 script {
-//                     def domain = ''
-//                     if (params.BRANCH == 'main') {
-//                         domain = 'dev.spring-petclinic.com'
-//                     } else if (params.BRANCH == 'RC') {
-//                         domain = 'rc.spring-petclinic.com'
-//                     } else {
-//                         domain = "${params.COMMIT_ID}.dev.spring-petclinic.com"
-//                     }
-
-//                     def imageTag = params.COMMIT_ID ?: 'latest'
-//                     def service = params.SERVICE
-
-//                     echo "Deploying ${service} from branch ${params.BRANCH} with image tag ${imageTag} to ${domain}"
-
-//                     // Apply Kubernetes deployment
-//                     sh """
-//                     kubectl set image deployment/${service} ${service}=${DOCKER_IMAGE}-${service}:${imageTag} -n spring-petclinic
-//                     kubectl rollout restart deployment/${service} -n spring-petclinic
-//                     """
-
-//                     // Create or update ingress rule
-//                     sh """
-//                     kubectl apply -f - <<EOF
-//                     apiVersion: networking.k8s.io/v1
-//                     kind: Ingress
-//                     metadata:
-//                       name: ${service}-ingress
-//                       namespace: spring-petclinic
-//                       annotations:
-//                         nginx.ingress.kubernetes.io/rewrite-target: /
-//                     spec:
-//                       rules:
-//                       - host: ${domain}
-//                         http:
-//                           paths:
-//                           - path: /
-//                             pathType: Prefix
-//                             backend:
-//                               service:
-//                                 name: ${service}
-//                                 port:
-//                                   number: 8080
-//                     EOF
-//                     """
-//                 }
-//             }
-//         }
-//     }
-
-//     post {
-//         success {
-//             echo "Deployment successful! Access the service at http://${params.BRANCH == 'main' ? 'dev.spring-petclinic.com' : params.BRANCH == 'RC' ? 'rc.spring-petclinic.com' : params.COMMIT_ID + '.dev.spring-petclinic.com'}"
-//         }
-//         failure {
-//             echo "Deployment failed. Check logs for details."
-//         }
-//     }
-// }
-
-
-// pipeline {
-//     agent any
-
-//     parameters {
-//         string(name: 'ADMIN_SERVER_TAG', defaultValue: 'latest', description: 'Image tag for admin-server')
-//         string(name: 'API_GATEWAY_TAG', defaultValue: 'latest', description: 'Image tag for api-gateway')
-//         string(name: 'CONFIG_SERVER_TAG', defaultValue: 'latest', description: 'Image tag for config-server')
-//         string(name: 'CUSTOMERS_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for customers-service')
-//         string(name: 'DISCOVERY_SERVER_TAG', defaultValue: 'latest', description: 'Image tag for discovery-server')
-//         string(name: 'VETS_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for vets-service')
-//         string(name: 'VISITS_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for visits-service')
-//         string(name: 'GENAI_SERVICE_TAG', defaultValue: 'latest', description: 'Image tag for genai-service')
-//     }
-
-//     environment {
-//         DOCKER_IMAGE = 'vh3956/spring-petclinic'
-//     }
-
-//     stages {
-
-//         stage('Deploy Helm Charts') {
-//             steps {
-//                 script {
-//                     echo "Cleaning up old resources..."
-//                     sh """
-//                     kubectl delete deployments --all -n spring-petclinic --ignore-not-found=true
-//                     """
-
-//                     echo "Deploying ingress-nginx..."
-//                     sh """
-//                     helm upgrade --install ingress-nginx ingress-nginx \
-//                         --repo https://kubernetes.github.io/ingress-nginx \
-//                         --namespace ingress-nginx --create-namespace \
-//                         --set controller.service.type=LoadBalancer
-//                     """
-
-//                     echo "Deploying Spring PetClinic Helm Chart..."
-//                     sh """
-//                     helm upgrade --install spring-petclinic ./spring-petclinic \
-//                     --namespace spring-petclinic --create-namespace \
-//                     --set ingress.enabled=true \
-//                     --set ingress.hosts[0].host=dev.spring-petclinic.com \
-//                     --set ingress.hosts[0].paths[0].path="/" \
-//                     --set ingress.hosts[0].paths[0].pathType=Prefix \
-//                     --force \
-//                     """
-//                 }
-//             }
-//         }
-
-//         stage('Update Images') {
-//             steps {
-//                 script {
-//                     // Tạo namespace nếu chưa tồn tại
-//                     sh """
-//                     kubectl get namespace spring-petclinic || kubectl create namespace spring-petclinic
-//                     """
-
-//                     // Danh sách các services trong ứng dụng Spring PetClinic
-//                     def services = [
-//                         'config-server', // Deploy config-server first
-//                         'discovery-server',
-//                         'api-gateway',
-//                         'admin-server',
-//                         'customers-service',
-//                         'vets-service',
-//                         'visits-service',
-//                         'genai-service'
-//                     ]
-
-//                     // Nếu SERVICE được chỉ định, chỉ deploy service đó
-//                     if (params.SERVICE) {
-//                         services = [params.SERVICE]
-//                     }
-
-//                     def imageTag = params.COMMIT_ID ?: 'latest'
-
-//                     for (service in services) {
-//                         echo "Ensuring deployment and service for ${service} exist..."
-
-//                         // Kiểm tra và tạo Deployment nếu chưa tồn tại
-//                         sh """
-//                         kubectl get deployment ${service} -n spring-petclinic || kubectl create deployment ${service} --image=${DOCKER_IMAGE}-${service}:${imageTag} -n spring-petclinic
-//                         """
-
-//                         // Kiểm tra và tạo Service nếu chưa tồn tại
-//                         sh """
-//                         kubectl get service ${service} -n spring-petclinic || kubectl expose deployment ${service} --type=ClusterIP --port=8000 -n spring-petclinic
-//                         """
-
-//                         echo "Updating image for ${service} with tag ${imageTag}"
-
-//                         // Update image for the service
-//                         sh """
-//                         kubectl set image deployment/${service} ${service}=${DOCKER_IMAGE}-${service}:${imageTag} -n spring-petclinic
-//                         kubectl rollout restart deployment/${service} -n spring-petclinic
-//                         """
-//                     }
-//                 }
-//             }
-//         }
-//     }
-
-//     post {
-//         success {
-//             echo "Deployment successful! Access the service at http://${params.BRANCH == 'main' ? 'dev.spring-petclinic.com' : params.BRANCH == 'RC' ? 'rc.spring-petclinic.com' : params.COMMIT_ID + '.dev.spring-petclinic.com'}"
-//         }
-//         failure {
-//             echo "Deployment failed. Check logs for details."
-//         }
-//     }
-// }
-
-
 pipeline {
     agent any
     
@@ -253,10 +61,7 @@ pipeline {
                     sh "sed -i 's/^namespace:.*/namespace: ${NAMESPACE}/' ./spring-petclinic/values.yaml"
 
                     // update ingress host for api-gateway
- 
                     sh "sed -i '/api-gateway:/,/host:/ s/host:.*/host: petclinic-${NAMESPACE}.tech/' ./spring-petclinic/values.yaml"
-
-                    echo "Domain: petclinic-${NAMESPACE}.tech:30213"
                 }
             }
         }
@@ -277,6 +82,12 @@ pipeline {
                         --set services.genai-service.tag=${GENAI_SERVICE_TAG}
                     """
                 }
+            }
+        }
+
+        stage('Show Ingress Link') {
+            steps {
+                echo "API Gateway URL: dev.spring-petclinic.com"
             }
         }
 
